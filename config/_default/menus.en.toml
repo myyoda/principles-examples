@@ -1,0 +1,43 @@
+[[main]]
+  name = "About"
+  pageRef = "about"
+  weight = 10
+
+[[main]]
+  name = "Examples"
+  pageRef = "examples"
+  weight = 20
+
+[[main]]
+  name = "GitHub"
+  url = "https://github.com/myyoda/principles-examples"
+  weight = 50
+
+[[main]]
+  name = "Search"
+  weight = 99
+
+[[footer]]
+  name = "STAMPED"
+  pageRef = "stamped_principles"
+  weight = 10
+
+[[footer]]
+  name = "FAIR"
+  pageRef = "fair_principles"
+  weight = 20
+
+[[footer]]
+  name = "Level"
+  pageRef = "instrumentation_levels"
+  weight = 30
+
+[[footer]]
+  name = "Aspirations"
+  pageRef = "aspirations"
+  weight = 40
+
+[[footer]]
+  name = "Tags"
+  pageRef = "tags"
+  weight = 50

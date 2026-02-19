@@ -1,0 +1,23 @@
+{{/*
+  state-banner.html — renders a banner based on the page's "state" front matter field.
+
+  Recognized states:
+    uncurated-ai  — AI-generated draft, not yet reviewed
+    wip           — work in progress, content is incomplete
+    final         — reviewed and ready (no banner shown)
+
+  Pages without a state field show no banner.
+*/}}
+{{ with .Params.state }}
+  {{ if eq . "uncurated-ai" }}
+    <div class="state-banner state-uncurated-ai">
+      <strong>Note:</strong> This example was AI-generated and has not yet been curated.
+      Details may be inaccurate or incomplete.
+    </div>
+  {{ else if eq . "wip" }}
+    <div class="state-banner state-wip">
+      <strong>Work in progress:</strong> This example is under active development
+      and may be incomplete or change significantly.
+    </div>
+  {{ end }}
+{{ end }}

@@ -1,0 +1,54 @@
+# -- Site Configuration --
+# https://jpanther.github.io/congo/docs/getting-started/
+
+theme = "congo"
+baseURL = "https://myyoda.github.io/principles-examples/"
+defaultContentLanguage = "en"
+
+enableRobotsTXT = true
+summaryLength = 0
+
+[pagination]
+  pagerSize = 20
+
+[outputFormats]
+  [outputFormats.print]
+    baseName = "index.print"
+    mediaType = "text/html"
+    isPlainText = false
+    notAlternative = true
+
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+  section = ["HTML", "RSS", "print"]
+  page = ["HTML"]
+
+[privacy]
+  [privacy.youTube]
+    privacyEnhanced = true
+
+[taxonomies]
+  category = "categories"
+  tag = "tags"
+  stamped_principle = "stamped_principles"
+  fair_principle = "fair_principles"
+  instrumentation_level = "instrumentation_levels"
+  aspiration = "aspirations"
+
+[related]
+  threshold = 40
+  includeNewer = true
+  toLower = true
+
+  [[related.indices]]
+    name = "stamped_principles"
+    weight = 100
+  [[related.indices]]
+    name = "fair_principles"
+    weight = 80
+  [[related.indices]]
+    name = "aspirations"
+    weight = 70
+  [[related.indices]]
+    name = "tags"
+    weight = 50

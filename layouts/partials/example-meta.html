@@ -1,0 +1,39 @@
+{{/*
+  example-meta.html
+  Renders a metadata info box for an example page.
+
+  Expected front matter structure:
+    params:
+      tools: ["datalad", "git-annex"]
+      difficulty: "beginner"    # beginner | intermediate | advanced
+      verified: true            # boolean
+*/}}
+
+{{ with .Params.params }}
+<div class="example-meta">
+
+  {{ with .tools }}
+  <div class="meta-item">
+    <span class="meta-label">Tools:</span>
+    {{ range . }}<code>{{ . }}</code> {{ end }}
+  </div>
+  {{ end }}
+
+  {{ with .difficulty }}
+  <div class="meta-item">
+    <span class="meta-label">Difficulty:</span>
+    <span class="difficulty-{{ . }}">{{ . | title }}</span>
+  </div>
+  {{ end }}
+
+  <div class="meta-item">
+    <span class="meta-label">Verified:</span>
+    {{ if .verified }}
+      <span style="color: #2e7d32;">&#10003; Verified</span>
+    {{ else }}
+      <span style="color: #9e9e9e;">Not yet verified</span>
+    {{ end }}
+  </div>
+
+</div>
+{{ end }}

@@ -1,0 +1,20 @@
+languageCode = "en"
+languageName = "English"
+languageDirection = "ltr"
+weight = 1
+
+title = "STAMPED Principles Examples"
+
+[params]
+  dateFormat = "2 January 2006"
+
+  mainSections = ["examples"]
+  description = "Concrete, pragmatic examples demonstrating the STAMPED principles for idiomatic dataset version control."
+
+[params.author]
+  name = "YODA Project"
+  headline = "STAMPED Principles Examples"
+  bio = "A companion resource to the STAMPED paper — concrete examples of Self-containment, Tracking, Actionability, Modularity, Portability, Ephemerality, and Distributability for dataset version control."
+  links = [
+    { github = "https://github.com/myyoda/principles-examples" },
+  ]

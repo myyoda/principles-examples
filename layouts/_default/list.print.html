@@ -1,0 +1,118 @@
+{{/*
+  list.print.html
+  Aggregates all child pages of the current section into a single HTML page
+  suitable for printing or PDF export.
+
+  Access via: /examples/print/  (or any section with ?print appended)
+  Hugo output format "print" must be configured in hugo.yaml:
+    outputFormats:
+      print:
+        baseName: print
+        mediaType: text/html
+        path: print
+*/}}
+
+<!DOCTYPE html>
+<html lang="{{ .Site.LanguageCode | default "en" }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ .Title }} &ndash; Print View</title>
+  <style>
+    /* Minimal print-friendly styles */
+    body {
+      font-family: "Georgia", "Times New Roman", serif;
+      max-width: 50em;
+      margin: 2em auto;
+      padding: 0 1em;
+      color: #222;
+      line-height: 1.6;
+    }
+    h1 { font-size: 1.8em; border-bottom: 2px solid #333; padding-bottom: 0.3em; }
+    h2 { font-size: 1.4em; margin-top: 1.5em; }
+    h3 { font-size: 1.1em; }
+    code {
+      background: #f4f4f4;
+      padding: 0.15em 0.3em;
+      border-radius: 3px;
+      font-size: 0.9em;
+    }
+    pre {
+      background: #f4f4f4;
+      padding: 1em;
+      overflow-x: auto;
+      border-radius: 4px;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+    }
+    .example-separator {
+      border: none;
+      border-top: 1px solid #ccc;
+      margin: 2em 0;
+    }
+    .example-meta-print {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 0.5em 0.8em;
+      margin-bottom: 1em;
+      font-size: 0.85em;
+    }
+    .example-meta-print code {
+      font-size: 0.85em;
+    }
+
+    /* Page breaks between examples when printing */
+    @media print {
+      .example-entry + .example-entry {
+        page-break-before: always;
+      }
+      body { margin: 0; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>{{ .Title }}</h1>
+
+  {{ with .Content }}
+    <div class="section-intro">{{ . }}</div>
+  {{ end }}
+
+  {{ range .RegularPages.ByTitle }}
+  <article class="example-entry">
+    <h2>{{ .Title }}</h2>
+
+    {{/* Render inline metadata if available */}}
+    {{ with .Params.params }}
+    <div class="example-meta-print">
+      {{ with .tools }}
+        <strong>Tools:</strong>
+        {{ range $i, $t := . }}{{ if $i }}, {{ end }}<code>{{ $t }}</code>{{ end }}
+        &nbsp;&bull;&nbsp;
+      {{ end }}
+      {{ with .difficulty }}
+        <strong>Difficulty:</strong> {{ . | title }}
+        &nbsp;&bull;&nbsp;
+      {{ end }}
+      <strong>Verified:</strong>
+      {{ if .verified }}Yes{{ else }}No{{ end }}
+    </div>
+    {{ end }}
+
+    <div class="example-content">
+      {{ .Content }}
+    </div>
+
+    <hr class="example-separator">
+  </article>
+  {{ end }}
+
+  <footer style="text-align: center; font-size: 0.8em; color: #999; margin-top: 3em;">
+    Generated from <em>{{ .Site.Title }}</em> on {{ now.Format "2006-01-02" }}
+  </footer>
+
+</body>
+</html>

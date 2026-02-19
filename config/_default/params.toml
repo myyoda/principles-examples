@@ -1,0 +1,59 @@
+# -- Theme Parameters --
+# https://jpanther.github.io/congo/docs/configuration/#theme-parameters
+
+colorScheme = "congo"
+defaultAppearance = "light"
+autoSwitchAppearance = true
+
+enableSearch = true
+enableCodeCopy = true
+enableImageLazyLoading = true
+enableImageWebp = true
+enableQuicklink = true
+
+fingerprintAlgorithm = "sha256"
+
+[header]
+  layout = "basic"
+  showTitle = true
+
+[footer]
+  showCopyright = true
+  showThemeAttribution = true
+  showAppearanceSwitcher = true
+  showScrollToTop = true
+
+[homepage]
+  layout = "page"
+  showRecent = true
+  recentLimit = 10
+
+[article]
+  showDate = true
+  showDateUpdated = true
+  showAuthor = false
+  showBreadcrumbs = true
+  showDraftLabel = true
+  showEdit = true
+  editURL = "https://github.com/myyoda/principles-examples/tree/main/content/"
+  editAppendPath = true
+  showHeadingAnchors = true
+  showPagination = true
+  showReadingTime = true
+  showTableOfContents = true
+  showTaxonomies = true
+  showWordCount = false
+
+[list]
+  showBreadcrumbs = true
+  showSummary = true
+  showTableOfContents = true
+  showTaxonomies = true
+  groupByYear = false
+  paginationWidth = 1
+
+[taxonomy]
+  showTermCount = true
+
+[sitemap]
+  excludedKinds = []

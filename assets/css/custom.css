@@ -1,0 +1,225 @@
+/* ==========================================================================
+   Custom taxonomy badge styles for YODA Examples Hugo site
+   Congo theme loads this file automatically via assets/css/custom.css
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   STAMPED Principle Badges
+   Each letter (S, T, A, M, P, E, D) gets a distinct color palette.
+   Selectors match taxonomy term links by their URL path segment.
+   --------------------------------------------------------------------------- */
+
+.taxonomy-stamped_principles a[href*="/s/"] {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.taxonomy-stamped_principles a[href*="/t/"] {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.taxonomy-stamped_principles a[href*="/a/"] {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.taxonomy-stamped_principles a[href*="/m/"] {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.taxonomy-stamped_principles a[href*="/p/"] {
+  background-color: #fce4ec;
+  color: #c62828;
+}
+
+.taxonomy-stamped_principles a[href*="/e/"] {
+  background-color: #e0f2f1;
+  color: #00695c;
+}
+
+.taxonomy-stamped_principles a[href*="/d/"] {
+  background-color: #ede7f6;
+  color: #4527a0;
+}
+
+/* ---------------------------------------------------------------------------
+   FAIR Principle Badges
+   Shades of blue and teal for Findable, Accessible, Interoperable, Reusable.
+   --------------------------------------------------------------------------- */
+
+.taxonomy-fair_principles a[href*="/f/"] {
+  background-color: #e1f5fe;
+  color: #0277bd;
+}
+
+.taxonomy-fair_principles a[href*="/a/"] {
+  background-color: #e0f7fa;
+  color: #00838f;
+}
+
+.taxonomy-fair_principles a[href*="/i/"] {
+  background-color: #b2ebf2;
+  color: #006064;
+}
+
+.taxonomy-fair_principles a[href*="/r/"] {
+  background-color: #b3e5fc;
+  color: #01579b;
+}
+
+/* ---------------------------------------------------------------------------
+   Instrumentation Level Badges
+   Neutral gray tones progressing from light (basic) to dark (advanced).
+   --------------------------------------------------------------------------- */
+
+.taxonomy-instrumentation_levels a[href*="/data-organization/"] {
+  background-color: #f5f5f5;
+  color: #616161;
+}
+
+.taxonomy-instrumentation_levels a[href*="/tool/"] {
+  background-color: #e8eaf6;
+  color: #283593;
+}
+
+.taxonomy-instrumentation_levels a[href*="/workflow/"] {
+  background-color: #e0e0e0;
+  color: #424242;
+}
+
+.taxonomy-instrumentation_levels a[href*="/pattern/"] {
+  background-color: #bdbdbd;
+  color: #212121;
+}
+
+/* ---------------------------------------------------------------------------
+   Aspiration Badges
+   Warm tones (amber, orange, deep orange) to convey forward-looking goals.
+   --------------------------------------------------------------------------- */
+
+.taxonomy-aspirations a[href*="/reproducibility/"] {
+  background-color: #fff8e1;
+  color: #f57f17;
+}
+
+.taxonomy-aspirations a[href*="/rigor/"] {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.taxonomy-aspirations a[href*="/transparency/"] {
+  background-color: #fbe9e7;
+  color: #bf360c;
+}
+
+.taxonomy-aspirations a[href*="/efficiency/"] {
+  background-color: #fce4ec;
+  color: #ad1457;
+}
+
+/* ---------------------------------------------------------------------------
+   Common badge styling
+   Applied to all taxonomy term links for consistent shape and spacing.
+   --------------------------------------------------------------------------- */
+
+.taxonomy-stamped_principles a,
+.taxonomy-fair_principles a,
+.taxonomy-instrumentation_levels a,
+.taxonomy-aspirations a {
+  display: inline-block;
+  padding: 0.15em 0.55em;
+  margin: 0.1em 0.2em;
+  border-radius: 0.75em;
+  font-size: 0.85em;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+
+.taxonomy-stamped_principles a:hover,
+.taxonomy-fair_principles a:hover,
+.taxonomy-instrumentation_levels a:hover,
+.taxonomy-aspirations a:hover {
+  opacity: 0.8;
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Example Metadata Box
+   Displayed at the top of each example page to show tools, difficulty, and
+   verification status.
+   --------------------------------------------------------------------------- */
+
+.example-meta {
+  background-color: var(--color-neutral-100, #f5f5f5);
+  border: 1px solid var(--color-neutral-300, #e0e0e0);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+.example-meta .meta-item {
+  margin-bottom: 0.25rem;
+}
+
+.example-meta .meta-item:last-child {
+  margin-bottom: 0;
+}
+
+.example-meta .meta-label {
+  font-weight: 600;
+  margin-right: 0.4em;
+}
+
+.example-meta code {
+  background-color: var(--color-neutral-200, #eeeeee);
+  padding: 0.1em 0.4em;
+  border-radius: 0.25em;
+  font-size: 0.9em;
+  margin-right: 0.25em;
+}
+
+/* Difficulty level indicators */
+.example-meta .difficulty-beginner {
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.example-meta .difficulty-intermediate {
+  color: #f57f17;
+  font-weight: 500;
+}
+
+.example-meta .difficulty-advanced {
+  color: #c62828;
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+   State Banners
+   Rendered by layouts/partials/state-banner.html based on front matter "state".
+   --------------------------------------------------------------------------- */
+
+.state-banner {
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.state-uncurated-ai {
+  background-color: #fff3e0;
+  border: 1px solid #ffe0b2;
+  color: #e65100;
+}
+
+.state-wip {
+  background-color: #e3f2fd;
+  border: 1px solid #bbdefb;
+  color: #1565c0;
+}
