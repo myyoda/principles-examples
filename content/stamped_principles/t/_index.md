@@ -1,18 +1,17 @@
 ---
-title: "T — Tracking"
-description: "All changes to a dataset should be tracked with full provenance"
+title: "T — Tracked"
+description: "Version information and provenance recorded for all components via content-addressed version control"
 ---
 
-All changes to a dataset should be **tracked with full provenance**. Every
-modification, addition, or deletion is recorded -- who made the change, when,
-why, and how. This goes beyond simple version control to include the
-computational provenance of derived data.
+Version information must be recorded for all components, ideally using the same
+content-addressed version control system. The primary value is not version
+numbering ("v1" vs "v2") but content-addressed identification -- two datasets
+with identical content hashes are provably identical.
 
-Tracking means that the history of a dataset is not just a sequence of
-snapshots, but a rich record of the reasoning and processes behind each change.
-When a file is updated, the commit message explains the intent; when a derived
-file is produced, the command that generated it is recorded alongside the result.
+Tracking encompasses not only version history but also provenance: what actions
+produced or modified each component, what inputs were consumed, and what versions
+of code and environment were involved. For code-driven modifications, provenance
+should be captured programmatically rather than by manual annotation.
 
-This principle enables reproducibility at the dataset level. Given any past
-version, you can understand not only what the data looked like, but the full
-chain of decisions and transformations that brought it to that state.
+See the [STAMPED paper](https://github.com/myyoda/principles-paper) for the
+full treatment.

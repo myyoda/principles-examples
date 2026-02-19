@@ -1,20 +1,19 @@
 ---
-title: "P — Portability"
-description: "Datasets should be portable across storage backends and infrastructure"
+title: "P — Portable"
+description: "Procedures do not depend on undocumented host state; environments are explicitly specified"
 ---
 
-Datasets should be **portable across storage backends and infrastructure**. The
-logical structure -- files, versions, metadata -- should be independent of where
-and how the data is physically stored. Moving data between local disk,
-institutional storage, and cloud should not require restructuring.
+A research object that is self-contained, tracked, and modular may still fail to
+reproduce if it depends on undocumented host environment state -- hardcoded
+paths, implicitly available tools, or specific OS configurations. Portability
+requires that procedures can be executed on different hosts, given documented
+system requirements.
 
-Portability decouples the identity of a dataset from the infrastructure that
-hosts it. A dataset organized according to this principle can live on a
-researcher's laptop during development, move to a high-performance cluster for
-analysis, be archived in an institutional repository for long-term preservation,
-and be mirrored to cloud storage for broad access -- all without changing its
-internal organization.
+Computational environments must be explicitly defined (not implicitly assumed),
+machine-reproducible, and version controlled alongside code and data. Whether
+via containers (Docker, Singularity/Apptainer) or declarative package managers
+(Nix, Guix), what matters is that environments are specified, versioned, and
+available within the project.
 
-This principle is especially important for longevity. Storage technologies and
-institutional infrastructure change over time, but a portable dataset can
-migrate between them without losing its structure, history, or meaning.
+See the [STAMPED paper](https://github.com/myyoda/principles-paper) for the
+full treatment.

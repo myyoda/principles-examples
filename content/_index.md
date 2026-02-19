@@ -3,27 +3,31 @@ title: "STAMPED Principles — Examples"
 description: "Concrete examples demonstrating the STAMPED principles for idiomatic dataset version control"
 ---
 
-This site is a companion resource to our paper on idiomatic dataset version
-control. It provides concrete, pragmatic examples that demonstrate the seven
-**STAMPED** principles in practice -- from simple naming conventions to complex
-multi-tool workflows.
+This site is a companion resource to the
+[STAMPED paper](https://github.com/myyoda/principles-paper) on properties of
+a reproducible research object. It provides concrete, pragmatic examples that
+demonstrate the seven STAMPED properties in practice -- from simple naming
+conventions to complex multi-tool workflows.
 
 ## What is STAMPED?
 
-STAMPED is an acronym for seven complementary principles that together describe
-what it means to manage datasets as carefully as we manage source code:
+STAMPED defines seven properties that characterize a well-formed reproducible
+research object -- a collection of data, code, and metadata that together
+represent a complete unit of research output.
+See the [paper](https://github.com/myyoda/principles-paper) for the full
+treatment; the table below is a quick reference:
 
-| Principle | Core idea |
+| Property | Core idea |
 |---|---|
-| **[S]({{< ref "stamped_principles/s" >}})** -- [Self-containment]({{< ref "stamped_principles/s" >}}) | A dataset carries everything needed to understand and use it -- metadata, provenance, and documentation travel with the data. |
-| **[T]({{< ref "stamped_principles/t" >}})** -- [Tracking]({{< ref "stamped_principles/t" >}}) | Every change is tracked with full provenance: who, when, why, and how. |
-| **[A]({{< ref "stamped_principles/a" >}})** -- [Actionability]({{< ref "stamped_principles/a" >}}) | Dataset operations are recorded in an executable form, not just documented. |
-| **[M]({{< ref "stamped_principles/m" >}})** -- [Modularity]({{< ref "stamped_principles/m" >}}) | Datasets are composed from independent, reusable components that can be versioned separately. |
-| **[P]({{< ref "stamped_principles/p" >}})** -- [Portability]({{< ref "stamped_principles/p" >}}) | The logical structure of a dataset is independent of where and how the data is physically stored. |
-| **[E]({{< ref "stamped_principles/e" >}})** -- [Ephemerality]({{< ref "stamped_principles/e" >}}) | Derived and regenerable content is treated as ephemeral, keeping repositories lean and focused on irreplaceable data. |
-| **[D]({{< ref "stamped_principles/d" >}})** -- [Distributability]({{< ref "stamped_principles/d" >}}) | Datasets support decentralized workflows -- cloning, forking, pushing, and pulling -- with efficient transfer. |
+| **[S]({{< ref "stamped_principles/s" >}})** -- [Self-contained]({{< ref "stamped_principles/s" >}}) | Everything needed to replicate results is within a single top-level boundary -- the "don't look up" rule. |
+| **[T]({{< ref "stamped_principles/t" >}})** -- [Tracked]({{< ref "stamped_principles/t" >}}) | All components are content-addressed and version-controlled; provenance of every modification is recorded. |
+| **[A]({{< ref "stamped_principles/a" >}})** -- [Actionable]({{< ref "stamped_principles/a" >}}) | Procedures are executable specifications, not just documentation -- a cross-cutting property that applies to every other STAMPED dimension. |
+| **[M]({{< ref "stamped_principles/m" >}})** -- [Modular]({{< ref "stamped_principles/m" >}}) | Components are organized as independently versioned modules that can be composed, updated, and reused separately. |
+| **[P]({{< ref "stamped_principles/p" >}})** -- [Portable]({{< ref "stamped_principles/p" >}}) | Procedures do not depend on undocumented host state; computational environments are explicitly specified and versioned. |
+| **[E]({{< ref "stamped_principles/e" >}})** -- [Ephemeral]({{< ref "stamped_principles/e" >}}) | Results can be produced in temporary, disposable environments built solely from the research object's contents -- validating that other properties hold. |
+| **[D]({{< ref "stamped_principles/d" >}})** -- [Distributable]({{< ref "stamped_principles/d" >}}) | The research object and all its components are persistently retrievable by others, packaged like a software distribution. |
 
-These principles are not independent checkboxes; they reinforce one another.
+These properties reinforce one another.
 Self-containment makes portability practical, tracking enables actionability,
 and modularity supports distributability.
 

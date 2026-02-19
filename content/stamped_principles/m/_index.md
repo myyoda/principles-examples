@@ -1,20 +1,18 @@
 ---
-title: "M — Modularity"
-description: "Datasets should be composable from independent, reusable components"
+title: "M — Modular"
+description: "Components organized as independently versioned modules that can be composed and reused"
 ---
 
-Datasets should be **composable from independent, reusable components**. A large
-project dataset can nest smaller datasets as modules, each independently
-versioned and maintained. This enables sharing common resources across projects
-without duplication.
+Rather than managing a research object as one indivisible whole, STAMPED promotes
+a compositional approach: independently versioned modules (input datasets,
+processing scripts, computational environments) can be updated or replaced
+separately, minimizing disruption and maximizing reusability.
 
-Modularity recognizes that real-world data management rarely involves a single
-monolithic collection. A neuroimaging study might share a common set of
-stimuli with other studies; a machine learning project might combine several
-benchmark datasets with custom annotations. Rather than copying shared data into
-each project, modular datasets link to their components while preserving each
-component's independent identity and version history.
+An idiomatic layout delineates components into structured directories --
+`code/`, `inputs/`, `envs/`, `docs/`, `results/` -- clarifying how they interact
+and supporting domain-specific standards (e.g., BIDS). Components may be
+included directly or linked as subdatasets (git submodules), each with its own
+independent version history.
 
-This principle supports both reuse and scalability. Individual components can be
-updated, cited, and distributed on their own terms, while composite datasets
-assemble them into coherent wholes.
+See the [STAMPED paper](https://github.com/myyoda/principles-paper) for the
+full treatment.

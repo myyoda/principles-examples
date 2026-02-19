@@ -1,22 +1,22 @@
 ---
-title: "D — Distributability"
-description: "Datasets should be designed for distribution across locations and contributors"
+title: "D — Distributable"
+description: "The research object and all its components are persistently retrievable by others"
 ---
 
-Datasets should be designed for **distribution across locations and
-contributors**. Like distributed version control for code, dataset version
-control should support decentralized workflows -- cloning, forking, pushing,
-pulling -- with efficient transfer of only the changes needed.
+Self-containment (S) establishes that everything needed is within the research
+object's boundary. Distributability promises that those references actually
+deliver -- that the research object and its components can be shared, retrieved,
+and used by others in a state consistent with reuse.
 
-Distributability means that no single server or institution is the sole point of
-access for a dataset. Contributors at different sites can maintain their own
-copies, work independently, and synchronize changes when ready. This mirrors the
-workflow that made Git successful for code collaboration, extended to the
-challenges of large-file data management.
+The distinction mirrors the concept of a software distribution: a curated,
+versioned bundle in which all components are resolved to specific versions and
+packaged for consumption. Simply sharing scripts with loose dependencies does not
+constitute distribution in this sense.
 
-This principle supports both collaboration and resilience. Distributed copies
-protect against data loss from any single point of failure, while decentralized
-workflows allow teams to work without constant connectivity to a central server.
-Efficient transfer mechanisms ensure that synchronization moves only the data
-that has actually changed, keeping network costs practical even for large
-datasets.
+The spectrum ranges from publicly accessible components with retrieval
+instructions, through persistent hosting on archival infrastructure (Zenodo,
+PyPI, conda-forge, DANDI) with frozen versions and content-addressed identifiers,
+to a fully self-contained archive (e.g., a built container or a zipped RO-Crate).
+
+See the [STAMPED paper](https://github.com/myyoda/principles-paper) for the
+full treatment.

@@ -1,20 +1,16 @@
 ---
-title: "S — Self-containment"
-description: "A dataset should be a self-contained unit that includes everything needed to understand and use its contents"
+title: "S — Self-contained"
+description: "All essential modules and components reside within a single top-level boundary"
 ---
 
-A dataset should be a **self-contained unit** that includes everything needed to
-understand and use its contents. Metadata, provenance information, and
-documentation travel with the data, not in external systems. When you clone or
-copy a dataset, you get the complete picture.
+A research object must never rely on implicit external state -- the "don't look
+up" rule. All modules and components essential to replicate computational
+execution must be contained within a single top-level boundary.
 
-Self-containment means that a dataset does not depend on an external wiki, a
-shared spreadsheet, or institutional memory for its interpretation. The data
-files, the description of what they contain, the record of where they came from,
-and the instructions for how to use them are all part of the same versioned
-package.
+Components may be included literally (files committed directly) or by reference
+(subdatasets, registered data URLs), provided the references are explicit and
+tracked. Self-containment is the foundational property upon which the remaining
+STAMPED properties build.
 
-This principle has practical consequences: if a collaborator receives a copy of
-your dataset, they should be able to understand its structure and provenance
-without asking you questions. If an archival system ingests your dataset years
-from now, the necessary context is already present.
+See the [STAMPED paper](https://github.com/myyoda/principles-paper) for the
+full treatment.

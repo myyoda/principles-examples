@@ -1,149 +1,90 @@
 /* ==========================================================================
    Custom taxonomy badge styles for YODA Examples Hugo site
    Congo theme loads this file automatically via assets/css/custom.css
+
+   Colors by taxonomy dimension, matching the data-hoarder pattern:
+   selectors target Congo's .rounded-md taxonomy links by href prefix.
+   teal = STAMPED, blue = FAIR, green = instrumentation, amber = aspirations.
    ========================================================================== */
 
-/* ---------------------------------------------------------------------------
-   STAMPED Principle Badges
-   Each letter (S, T, A, M, P, E, D) gets a distinct color palette.
-   Selectors match taxonomy term links by their URL path segment.
-   --------------------------------------------------------------------------- */
-
-.taxonomy-stamped_principles a[href*="/s/"] {
-  background-color: #e8f5e9;
-  color: #2e7d32;
+/* ── STAMPED principles — teal ─────────────────────────────── */
+a[href*="/stamped_principles/"].rounded-md {
+  border-color: #0e7490;
+  color: #0e7490;
+}
+a[href*="/stamped_principles/"].rounded-md:hover {
+  background-color: rgba(14, 116, 144, 0.1);
+  border-color: #155e75;
+  color: #155e75;
+}
+.dark a[href*="/stamped_principles/"].rounded-md {
+  border-color: #22d3ee;
+  color: #22d3ee;
+}
+.dark a[href*="/stamped_principles/"].rounded-md:hover {
+  background-color: rgba(34, 211, 238, 0.15);
+  border-color: #67e8f9;
+  color: #67e8f9;
 }
 
-.taxonomy-stamped_principles a[href*="/t/"] {
-  background-color: #e3f2fd;
-  color: #1565c0;
+/* ── FAIR principles — blue ────────────────────────────────── */
+a[href*="/fair_principles/"].rounded-md {
+  border-color: #2b6cb0;
+  color: #2b6cb0;
+}
+a[href*="/fair_principles/"].rounded-md:hover {
+  background-color: rgba(43, 108, 176, 0.1);
+  border-color: #2c5282;
+  color: #2c5282;
+}
+.dark a[href*="/fair_principles/"].rounded-md {
+  border-color: #63b3ed;
+  color: #63b3ed;
+}
+.dark a[href*="/fair_principles/"].rounded-md:hover {
+  background-color: rgba(99, 179, 237, 0.15);
+  border-color: #90cdf4;
+  color: #90cdf4;
 }
 
-.taxonomy-stamped_principles a[href*="/a/"] {
-  background-color: #fff3e0;
-  color: #e65100;
+/* ── Instrumentation levels — green ────────────────────────── */
+a[href*="/instrumentation_levels/"].rounded-md {
+  border-color: #2f855a;
+  color: #2f855a;
+}
+a[href*="/instrumentation_levels/"].rounded-md:hover {
+  background-color: rgba(47, 133, 90, 0.1);
+  border-color: #276749;
+  color: #276749;
+}
+.dark a[href*="/instrumentation_levels/"].rounded-md {
+  border-color: #68d391;
+  color: #68d391;
+}
+.dark a[href*="/instrumentation_levels/"].rounded-md:hover {
+  background-color: rgba(104, 211, 145, 0.15);
+  border-color: #9ae6b4;
+  color: #9ae6b4;
 }
 
-.taxonomy-stamped_principles a[href*="/m/"] {
-  background-color: #f3e5f5;
-  color: #7b1fa2;
+/* ── Aspirations — amber ───────────────────────────────────── */
+a[href*="/aspirations/"].rounded-md {
+  border-color: #d69e2e;
+  color: #975a16;
 }
-
-.taxonomy-stamped_principles a[href*="/p/"] {
-  background-color: #fce4ec;
-  color: #c62828;
+a[href*="/aspirations/"].rounded-md:hover {
+  background-color: rgba(214, 158, 46, 0.1);
+  border-color: #b7791f;
+  color: #744210;
 }
-
-.taxonomy-stamped_principles a[href*="/e/"] {
-  background-color: #e0f2f1;
-  color: #00695c;
+.dark a[href*="/aspirations/"].rounded-md {
+  border-color: #ecc94b;
+  color: #ecc94b;
 }
-
-.taxonomy-stamped_principles a[href*="/d/"] {
-  background-color: #ede7f6;
-  color: #4527a0;
-}
-
-/* ---------------------------------------------------------------------------
-   FAIR Principle Badges
-   Shades of blue and teal for Findable, Accessible, Interoperable, Reusable.
-   --------------------------------------------------------------------------- */
-
-.taxonomy-fair_principles a[href*="/f/"] {
-  background-color: #e1f5fe;
-  color: #0277bd;
-}
-
-.taxonomy-fair_principles a[href*="/a/"] {
-  background-color: #e0f7fa;
-  color: #00838f;
-}
-
-.taxonomy-fair_principles a[href*="/i/"] {
-  background-color: #b2ebf2;
-  color: #006064;
-}
-
-.taxonomy-fair_principles a[href*="/r/"] {
-  background-color: #b3e5fc;
-  color: #01579b;
-}
-
-/* ---------------------------------------------------------------------------
-   Instrumentation Level Badges
-   Neutral gray tones progressing from light (basic) to dark (advanced).
-   --------------------------------------------------------------------------- */
-
-.taxonomy-instrumentation_levels a[href*="/data-organization/"] {
-  background-color: #f5f5f5;
-  color: #616161;
-}
-
-.taxonomy-instrumentation_levels a[href*="/tool/"] {
-  background-color: #e8eaf6;
-  color: #283593;
-}
-
-.taxonomy-instrumentation_levels a[href*="/workflow/"] {
-  background-color: #e0e0e0;
-  color: #424242;
-}
-
-.taxonomy-instrumentation_levels a[href*="/pattern/"] {
-  background-color: #bdbdbd;
-  color: #212121;
-}
-
-/* ---------------------------------------------------------------------------
-   Aspiration Badges
-   Warm tones (amber, orange, deep orange) to convey forward-looking goals.
-   --------------------------------------------------------------------------- */
-
-.taxonomy-aspirations a[href*="/reproducibility/"] {
-  background-color: #fff8e1;
-  color: #f57f17;
-}
-
-.taxonomy-aspirations a[href*="/rigor/"] {
-  background-color: #fff3e0;
-  color: #e65100;
-}
-
-.taxonomy-aspirations a[href*="/transparency/"] {
-  background-color: #fbe9e7;
-  color: #bf360c;
-}
-
-.taxonomy-aspirations a[href*="/efficiency/"] {
-  background-color: #fce4ec;
-  color: #ad1457;
-}
-
-/* ---------------------------------------------------------------------------
-   Common badge styling
-   Applied to all taxonomy term links for consistent shape and spacing.
-   --------------------------------------------------------------------------- */
-
-.taxonomy-stamped_principles a,
-.taxonomy-fair_principles a,
-.taxonomy-instrumentation_levels a,
-.taxonomy-aspirations a {
-  display: inline-block;
-  padding: 0.15em 0.55em;
-  margin: 0.1em 0.2em;
-  border-radius: 0.75em;
-  font-size: 0.85em;
-  font-weight: 500;
-  text-decoration: none;
-  transition: opacity 0.15s ease;
-}
-
-.taxonomy-stamped_principles a:hover,
-.taxonomy-fair_principles a:hover,
-.taxonomy-instrumentation_levels a:hover,
-.taxonomy-aspirations a:hover {
-  opacity: 0.8;
-  text-decoration: none;
+.dark a[href*="/aspirations/"].rounded-md:hover {
+  background-color: rgba(236, 201, 75, 0.15);
+  border-color: #f6e05e;
+  color: #f6e05e;
 }
 
 /* ---------------------------------------------------------------------------

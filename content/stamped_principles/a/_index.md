@@ -1,19 +1,19 @@
 ---
-title: "A — Actionability"
-description: "Dataset operations should be executable, not just documented"
+title: "A — Actionable"
+description: "Procedures are executable specifications, not just documentation"
 ---
 
-Dataset operations should be **executable, not just documented**. Rather than
-describing how data was processed in a README, the actual commands and workflows
-should be recorded in a form that can be re-executed. A dataset should carry its
-own "recipes."
+Actionability elevates a research object from a static collection of metadata to
+an operational unit. A research object is actionable when its procedures can be
+carried out by executing its contents -- not merely read about.
 
-Actionability bridges the gap between documentation and reproducibility. A
-README that says "we normalized the data using a custom Python script" is
-informative; a dataset that contains the script, records the exact command that
-was run, and can re-execute that command to regenerate the output is actionable.
+Actionability is **cross-cutting**: it applies to every other STAMPED dimension.
+Tracking is more actionable when recorded commands can be re-executed (e.g.,
+`datalad rerun`), not just inspected. Modularity is more actionable when
+components can be composed via tooling (e.g., `git submodule`), not just
+organized into directories. Portability is more actionable when environments can
+be instantiated from a specification (e.g., `singularity run`), not just
+documented in a README.
 
-This principle transforms datasets from passive archives into active,
-reproducible artifacts. When provenance is recorded as executable steps rather
-than prose descriptions, anyone with access to the dataset can verify or rebuild
-its derived contents.
+See the [STAMPED paper](https://github.com/myyoda/principles-paper) for the
+full treatment.
