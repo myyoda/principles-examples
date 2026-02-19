@@ -12,7 +12,7 @@ params:
   tools: ["sh", "git"]
   difficulty: "beginner"
   verified: false
-state: uncurated-ai
+state: wip
 ---
 
 ## The pattern
@@ -58,7 +58,7 @@ cd "$(mktemp -d "${TMPDIR:-/tmp}/TOOL-XXXXXXX")"
 
 Use `#!/bin/sh` for maximum [portability]({{< ref "stamped_principles/p" >}}).
 Only reach for `#!/bin/bash` when you genuinely need bash-specific features
-(arrays, `[[ ]]`, process substitution).  Most reproducer scripts do not.
+(arrays, `[[ ]]`, process substitution).
 
 **2. Strict error handling: `set -eu`**
 
@@ -78,7 +78,7 @@ set -x
 PS4='> '
 ```
 
-`PS4` controls the prefix printed before each traced command (the default is
+as `PS4` controls the prefix printed before each traced command (the default is
 `+ `).  Setting it explicitly serves two purposes beyond readability:
 
 - **[Reproducibility]({{< ref "aspirations/reproducibility" >}})** — the
@@ -112,7 +112,8 @@ macOS.  The prefix (`dl-`, `gx-`, `ann-`) identifies which tool the script
 tests, making it easy to find (or clean up) leftover directories.
 
 No `trap ... EXIT` cleanup is usually needed — `/tmp` is cleaned by the OS,
-and you often *want* to inspect the result after a failure.
+and you often *want* to inspect the result after a failure, and having `set -x`
+visualizes initial `cd` path.
 
 **5. Self-contained setup**
 
@@ -182,7 +183,8 @@ progression is natural:
    becomes the test body, and the inspection becomes an assertion.
 
 This progression from throwaway script to permanent test case mirrors the
-Red/Green cycle of TDD: the reproducer is the "red" test that fails, the fix
+Red/Green cycle of [TDD](https://en.wikipedia.org/wiki/Test-driven_development):
+the reproducer is the "red" test that fails, the fix
 makes it "green", and the test prevents regressions.
 
 ## Example scenarios
