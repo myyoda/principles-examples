@@ -6,3 +6,5 @@ resources/_gen/
 .hugo_build.lock
 .local/
 .wget-hsts
+stamped-examples.md
+stamped-examples.pdf
