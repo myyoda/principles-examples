@@ -18,10 +18,10 @@ The [YODA principles](https://handbook.datalad.org/en/latest/basics/101-127-yoda
 structuring DataLad datasets. STAMPED extends and generalizes those ideas
 beyond any single tool:
 
-- Where YODA focuses on DataLad dataset organization, STAMPED captures the
-  underlying **principles** that make YODA effective and expresses them in a
-  tool-agnostic way.
-- STAMPED adds principles (such as Ephemerality and Distributability) that were
+- Where YODA focuses on DataLad dataset organization, STAMPED principles
+  formalize **properties of a research object** that make YODA effective and
+  express them in a tool-agnostic way.
+- STAMPED adds principles (such as [Ephemerality]({{< ref "stamped_principles/e" >}}) and [Distributability]({{< ref "stamped_principles/d" >}})) that were
   implicit in YODA practice but not explicitly named.
 - By decoupling the principles from a specific tool, STAMPED provides a
   vocabulary for evaluating *any* dataset management approach -- whether built
@@ -32,15 +32,15 @@ beyond any single tool:
 
 Examples on this site are organized along four independent dimensions:
 
-1. **STAMPED principles** -- Self-containment, Tracking, Actionability,
-   Modularity, Portability, Ephemerality, and Distributability.
-2. **FAIR mapping** -- which of the FAIR goals (Findable, Accessible,
-   Interoperable, Reusable) the practice supports.
-3. **Instrumentation level** -- ranging from conventions that require no
-   special tooling, through lightweight tools, to full version-control
-   infrastructure.
-4. **Aspirational goals** -- higher-level objectives such as reproducibility,
-   collaboration, scalability, and long-term preservation.
+1. **[STAMPED principles]({{< ref "stamped_principles" >}})** -- [Self-containment]({{< ref "stamped_principles/s" >}}), [Tracking]({{< ref "stamped_principles/t" >}}), [Actionability]({{< ref "stamped_principles/a" >}}),
+   [Modularity]({{< ref "stamped_principles/m" >}}), [Portability]({{< ref "stamped_principles/p" >}}), [Ephemerality]({{< ref "stamped_principles/e" >}}), and [Distributability]({{< ref "stamped_principles/d" >}}).
+2. **[FAIR mapping]({{< ref "fair_principles" >}})** -- which of the FAIR goals ([Findable]({{< ref "fair_principles/f" >}}), [Accessible]({{< ref "fair_principles/a" >}}),
+   [Interoperable]({{< ref "fair_principles/i" >}}), [Reusable]({{< ref "fair_principles/r" >}})) the practice supports.
+3. **[Instrumentation level]({{< ref "instrumentation_levels" >}})** -- ranging from [conventions]({{< ref "instrumentation_levels/data-organization" >}}) that require no
+   special tooling, through lightweight [tools]({{< ref "instrumentation_levels/tool" >}}), to full version-control
+   [workflows]({{< ref "instrumentation_levels/workflow" >}}).
+4. **[Aspirational goals]({{< ref "aspirations" >}})** -- higher-level objectives such as [reproducibility]({{< ref "aspirations/reproducibility" >}}),
+   [rigor]({{< ref "aspirations/rigor" >}}), [transparency]({{< ref "aspirations/transparency" >}}), and [efficiency]({{< ref "aspirations/efficiency" >}}).
 
 An example may be tagged with multiple values in each dimension. A README
 convention, for instance, supports Self-containment *and* Findability *and*

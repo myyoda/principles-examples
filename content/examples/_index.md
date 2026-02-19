@@ -12,16 +12,16 @@ contributes to sound dataset version control.
 
 Every example is tagged along four dimensions:
 
-- **STAMPED principles** -- which of the seven principles
-  (Self-containment, Tracking, Actionability, Modularity, Portability,
-  Ephemerality, Distributability) the example demonstrates.
-- **FAIR mapping** -- which [FAIR]({{< ref "fair_principles" >}}) goals
-  (Findable, Accessible, Interoperable, Reusable) the practice helps
+- **[STAMPED principles]({{< ref "stamped_principles" >}})** -- which of the seven principles
+  ([Self-containment]({{< ref "stamped_principles/s" >}}), [Tracking]({{< ref "stamped_principles/t" >}}), [Actionability]({{< ref "stamped_principles/a" >}}), [Modularity]({{< ref "stamped_principles/m" >}}), [Portability]({{< ref "stamped_principles/p" >}}),
+  [Ephemerality]({{< ref "stamped_principles/e" >}}), [Distributability]({{< ref "stamped_principles/d" >}})) the example demonstrates.
+- **[FAIR mapping]({{< ref "fair_principles" >}})** -- which FAIR goals
+  ([Findable]({{< ref "fair_principles/f" >}}), [Accessible]({{< ref "fair_principles/a" >}}), [Interoperable]({{< ref "fair_principles/i" >}}), [Reusable]({{< ref "fair_principles/r" >}})) the practice helps
   achieve.
-- **Instrumentation level** -- how much tooling the example requires, from
+- **[Instrumentation level]({{< ref "instrumentation_levels" >}})** -- how much tooling the example requires, from
   plain conventions to infrastructure-dependent workflows.
-- **Aspirational goals** -- higher-level objectives the practice serves,
-  such as reproducibility, collaboration, or scalability.
+- **[Aspirational goals]({{< ref "aspirations" >}})** -- higher-level objectives the practice serves,
+  such as [reproducibility]({{< ref "aspirations/reproducibility" >}}), [rigor]({{< ref "aspirations/rigor" >}}), or [transparency]({{< ref "aspirations/transparency" >}}).
 
 Most examples carry tags in several dimensions, because good practices tend
 to serve multiple goals at once.
@@ -40,12 +40,12 @@ You can explore the examples in several ways:
 
 Examples are arranged to cover a spectrum of complexity:
 
-- **Beginner** -- simple conventions and directory layouts that require no
+- **Beginner** -- simple conventions and [directory layouts]({{< ref "instrumentation_levels/data-organization" >}}) that require no
   special tools.
 - **Intermediate** -- practices that use lightweight scripts, checksums, or
-  standard Git features.
-- **Advanced** -- workflows involving specialized tools (DataLad, DVC,
-  Git-annex) or multi-step pipelines demonstrating several principles
+  standard [Git features]({{< ref "instrumentation_levels/tool" >}}).
+- **Advanced** -- [workflows]({{< ref "instrumentation_levels/workflow" >}}) involving specialized tools (DataLad, DVC,
+  Git-annex) or multi-step pipelines demonstrating several [patterns]({{< ref "instrumentation_levels/pattern" >}})
   together.
 
 Pick the level that matches your current setup and expand from there.
