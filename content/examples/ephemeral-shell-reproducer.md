@@ -535,8 +535,7 @@ PS4='> '
 cd "$(mktemp -d "${TMPDIR:-/tmp}/qc-XXXXXXX")"
 
 # --- build the container image from a pinned digest ---
-singularity pull docker://alpine@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c
-mv alpine_latest.sif env.sif
+singularity pull env.sif docker://alpine@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c
 
 git init qc-analysis
 cd qc-analysis
@@ -562,7 +561,10 @@ EOF
   git commit -m "Add raw sensor measurements"
   git push
 )
-git submodule add ../raw-data.git raw-data
+# In a real project, use a proper URL (https://... or git@...:...).
+# For this local demo, we must allow the file:// transport
+# (restricted by default since Git 2.38.1, CVE-2022-39253).
+git -c protocol.file.allow=always submodule add ../raw-data.git raw-data
 
 # --- analysis script ---
 cat > run-qc.sh <<'SCRIPT'
