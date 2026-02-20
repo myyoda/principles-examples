@@ -166,7 +166,7 @@ expectation.
 | [Self-contained]({{< ref "stamped_principles/s" >}}) | Everything needed is created inline — no external state required beyond the tool under test |
 | [Tracked]({{< ref "stamped_principles/t" >}}) | The script *is* the record: copy-pasteable into an issue, attachable to a commit |
 | [Actionable]({{< ref "stamped_principles/a" >}}) | Running the script *is* the reproduction — it is an executable specification of the bug, not a prose description |
-| [Portable]({{< ref "stamped_principles/p" >}}) | POSIX sh + `mktemp` + `${TMPDIR:-/tmp}` works across Linux and macOS; explicit `PS4` avoids shell-specific trace behavior; no hardcoded paths. **Windows note**: `awk` is not bundled with Windows natively — [WSL](https://learn.microsoft.com/en-us/windows/wsl/) or [Git Bash](https://gitforwindows.org/) (which bundles `awk`) is required |
+| [Portable]({{< ref "stamped_principles/p" >}}) | POSIX sh + `mktemp` + `${TMPDIR:-/tmp}` works across Linux and macOS; explicit `PS4` avoids shell-specific trace behavior; no hardcoded paths. **Windows note**: `awk` is not bundled with Windows natively — [WSL](https://learn.microsoft.com/en-us/windows/wsl/) or a [conda](https://docs.conda.io/en/latest/) base environment (which ships `awk`) is required |
 | [Ephemeral]({{< ref "stamped_principles/e" >}}) | Each run operates in a fresh temp directory; the entire workspace can be discarded after inspection |
 
 ## From reproducer to test case
