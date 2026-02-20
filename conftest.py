@@ -77,9 +77,11 @@ def evaluate_shell_script(example):
             ["sh", path],
             timeout=timeout,
         )
-        if result.returncode != 0:
+        expected_rc = int(pragmas.get("exitcode", "0"))
+        if result.returncode != expected_rc:
             raise AssertionError(
                 f"Script {test_id} exited with code {result.returncode}"
+                f" (expected {expected_rc})"
             )
     except subprocess.TimeoutExpired:
         raise AssertionError(f"Script {test_id} timed out after {timeout}s")
