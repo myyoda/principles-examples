@@ -19,7 +19,12 @@ $(STAMPED_PDF): $(STAMPED_MD)
 		-V 'mainfont=DejaVu Serif' \
 		--highlight-style=tango
 
+test: test-snippets
+
+test-snippets:
+	pytest content/ -v
+
 clean:
 	rm -f $(STAMPED_MD) $(STAMPED_PDF)
 
-.PHONY: all serve-devel pdf clean
+.PHONY: all serve-devel pdf clean test-snippets

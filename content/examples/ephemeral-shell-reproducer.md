@@ -200,8 +200,9 @@ requires only POSIX `sh` and `awk` — nothing else to install.
 
 ```sh
 #!/bin/sh
+# pragma: testrun scenario-1
+# pragma: requires sh awk
 # Sensor QC: compute per-sensor mean temperature, flag outliers
-# Requires: sh, awk
 
 set -eu
 
@@ -281,8 +282,9 @@ results from source).  No specialized tooling beyond `git` and `make`.
 
 ```sh
 #!/bin/sh
+# pragma: testrun scenario-2
+# pragma: requires sh awk make git
 # Sensor QC as a tracked, actionable git repository
-# Requires: sh, awk, make, git
 
 set -eu
 
@@ -386,8 +388,10 @@ OCI-native workflow (`docker run --rm -v "$PWD:$PWD" -w "$PWD" alpine:3.21
 
 ```sh
 #!/bin/sh
+# pragma: testrun scenario-3
+# pragma: requires sh awk make git singularity
+# pragma: timeout 120
 # Sensor QC with containerized execution via Alpine
-# Requires: sh, awk, make, git, singularity
 
 set -eu
 
@@ -518,8 +522,10 @@ No network access needed to reproduce.
 
 ```sh
 #!/bin/sh
+# pragma: testrun scenario-4
+# pragma: requires sh make git singularity
+# pragma: timeout 120
 # Sensor QC: fully self-contained with container in git
-# Requires: sh, make, singularity
 
 set -eu
 

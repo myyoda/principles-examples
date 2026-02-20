@@ -1,5 +1,7 @@
 .npm/
 .venv/
+.pytest_cache/
+__pycache__/
 *.swp
 public/
 resources/_gen/
