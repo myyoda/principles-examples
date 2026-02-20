@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure git
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+          git config --global advice.detachedHead false
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+          fetch-depth: 0
+
+      - name: Fetch theme submodule
+        run: git submodule update --init themes/congo
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install tox
+        run: pip install tox
+
+      - name: Install Hugo
+        env:
+          HUGO_VERSION: "0.153.0"
+        run: |
+          wget -q -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb
+          sudo dpkg -i ${{ runner.temp }}/hugo.deb
+
+      - name: Run tests
+        run: tox
