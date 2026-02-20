@@ -4,7 +4,7 @@ date: 2026-02-19
 description: "A pattern for writing minimal, self-contained shell scripts that reproduce software issues in temporary environments"
 summary: "Distills a common practice among open-source developers: writing throwaway shell scripts that set up a fresh environment, reproduce a problem, and can be shared as actionable bug reports or starting points for test cases."
 tags: ["shell", "posix", "reproducer", "bug-report", "testing"]
-stamped_principles: ["S", "A", "E"]
+stamped_principles: ["S", "A", "E", "P"]
 fair_principles: ["R", "A"]
 instrumentation_levels: ["pattern"]
 aspirations: ["reproducibility", "rigor", "transparency"]
