@@ -9,7 +9,7 @@ fair_principles: ["R", "A"]
 instrumentation_levels: ["pattern"]
 aspirations: ["reproducibility", "rigor", "transparency"]
 params:
-  tools: ["sh", "awk", "datalad", "apptainer"]
+  tools: ["sh", "awk", "make", "git", "singularity"]
   difficulty: "beginner"
   verified: false
 state: wip
@@ -117,8 +117,8 @@ visualizes initial `cd` path.
 
 **5. Self-contained setup**
 
-The script creates everything it needs from scratch: `git init`, `datalad
-create`, `mkdir`, `echo content > file`.  It does not depend on pre-existing
+The script creates everything it needs from scratch: `git init`, `mkdir`,
+`echo content > file`.  It does not depend on pre-existing
 repositories, databases, or files on the user's machine.  This makes the script
 [self-contained]({{< ref "stamped_principles/s" >}}) — anyone with the
 required tool installed can run it.
@@ -137,9 +137,8 @@ url=https://raw.githubusercontent.com/datalad/datalad/0cb711ff/.../README.md
 (
   cd src
   git init
-  git annex init
   echo 123 > file
-  git annex add file && git commit -m "add file"
+  git add file && git commit -m "add file"
 )
 ```
 
@@ -150,7 +149,7 @@ repositories (a common need when reproducing push/pull/clone issues).
 **7. Inline expected-failure guards**
 
 ```sh
-if datalad push --to=target -r; then
+if git push origin main; then
     echo "Expected to fail, but succeeded"
     exit 1
 fi
@@ -212,18 +211,11 @@ PS4='> '
 cd "$(mktemp -d "${TMPDIR:-/tmp}/qc-XXXXXXX")"
 
 # --- generate synthetic raw data ---
-TAB="$(printf '\t')"
-cat > measurements.tsv <<EOF
-sensor_id${TAB}timestamp${TAB}temperature_C
-TMP001${TAB}2026-01-15T08:00${TAB}21.3
-TMP001${TAB}2026-01-15T12:00${TAB}23.7
-TMP001${TAB}2026-01-15T16:00${TAB}22.1
-TMP002${TAB}2026-01-15T08:00${TAB}19.8
-TMP002${TAB}2026-01-15T12:00${TAB}25.4
-TMP002${TAB}2026-01-15T16:00${TAB}24.2
-TMP003${TAB}2026-01-15T08:00${TAB}20.5
-TMP003${TAB}2026-01-15T12:00${TAB}22.8
-TMP003${TAB}2026-01-15T16:00${TAB}21.1
+cat > measurements.csv <<'EOF'
+sensor_id,timestamp,temperature_C
+TMP001,2026-01-15T08:00,21.3
+TMP001,2026-01-15T12:00,23.7
+TMP002,2026-01-15T08:00,25.4
 EOF
 
 THRESHOLD=23.0
@@ -232,64 +224,65 @@ THRESHOLD=23.0
 LC_ALL=C
 export LC_ALL
 
-awk -F'\t' 'NR>1 {sum[$1]+=$3; n[$1]++}
-  END {for(s in sum) printf "%s\t%.2f\t%d\n", s, sum[s]/n[s], n[s]}' \
-  measurements.tsv | sort -t"$TAB" -k1,1 > summary.tsv
+awk -F, 'NR>1 {sum[$1]+=$3; n[$1]++}
+  END {for(s in sum) printf "%s,%.2f,%d\n", s, sum[s]/n[s], n[s]}' \
+  measurements.csv | sort -t, -k1,1 > summary.csv
 
 # --- QC check ---
-awk -F'\t' -v thresh="$THRESHOLD" '{
+awk -F, -v thresh="$THRESHOLD" '{
   status = ($2 > thresh) ? "WARNING" : "OK"
-  printf "%s\t%s\tmean=%.2f\tn=%d\n", $1, status, $2, $3
-}' summary.tsv > report.tsv
+  printf "%s,%s,mean=%.2f,n=%d\n", $1, status, $2, $3
+}' summary.csv > report.csv
 
 echo "=== QC Report ==="
-cat report.tsv
+cat report.csv
 ```
 
 This script is [self-contained]({{< ref "stamped_principles/s" >}}) (the data
 is generated inline) and [ephemeral]({{< ref "stamped_principles/e" >}}) (runs
-in a fresh temp directory).  Note the two portability safeguards:
+in a fresh temp directory).  Note two portability safeguards:
 
 - **`LC_ALL=C`** — forces consistent numeric formatting and sort collation
   regardless of the host locale.  Without it, a system with `LC_ALL=de_DE.UTF-8`
   might sort differently or misparse decimal points.
-- **`TAB="$(printf '\t')"`** — POSIX-portable tab literal.  The tempting
-  `$'\t'` syntax is a bash extension that silently breaks under `dash` (the
-  default `/bin/sh` on Debian/Ubuntu).
+- **Explicit `| sort` after `awk` aggregation** — the POSIX spec states that
+  `for (key in array)` iteration order in `awk` is **implementation-defined**.
+  `gawk`, `mawk`, and `busybox awk` produce different orderings for the same
+  input.  Piping through `sort` makes the output deterministic regardless of
+  which `awk` is installed.
 
-Also note the explicit `| sort` after the `awk` aggregation.  The POSIX spec
-states that `for (key in array)` iteration order in `awk` is
-**implementation-defined** — `gawk`, `mawk`, and `busybox awk` produce
-different orderings.  Piping through `sort` makes the output deterministic
-regardless of which `awk` is installed.
+Using CSV (comma-separated) rather than TSV also simplifies the script — no
+need to deal with tab literals, which require care in POSIX shell (the
+`$'\t'` syntax is a bash extension that silently breaks under `dash`).
 
 #### What happens without these safeguards
 
-A "naive" version that omits `LC_ALL`, uses `$'\t'`, and skips the `sort`
-might work perfectly on the author's machine.  On a colleague's system it can
-fail in two distinct ways:
+A "naive" version that omits `LC_ALL=C` and skips the `sort` might work
+perfectly on the author's machine.  On a colleague's system it can fail in
+two distinct ways:
 
 1. **Silent divergence** — `awk` emits rows in a different order.  Both
    outputs contain the same numbers, but `diff` or `sha256sum` shows they
    differ.  Hours of debugging follow.
-2. **Hard crash** — `dash` does not recognize `$'\t'`, so `sort -t$'\t'`
-   receives a literal string and fails or sorts incorrectly.
+2. **Locale mismatch** — a German locale parses `23.7` differently, or
+   `sort` collates strings in an unexpected order, producing subtly wrong
+   results.
 
 Both failures are invisible during development on the author's machine and only
 surface when someone else tries to reproduce.
 
-### Scenario 2: Tracked provenance with `datalad run` (+ T, A)
+### Scenario 2: Makefile as actionable specification (+ T, A)
 
-The same analysis, but now the computation is recorded as a tracked,
-re-executable step.  This adds
-[tracking]({{< ref "stamped_principles/t" >}}) and
-[actionability]({{< ref "stamped_principles/a" >}}) — anyone who clones the
-dataset can inspect exactly what was run and `datalad rerun` it.
+The same analysis, but now organized as a git repository with a `Makefile`
+that declares the dependency graph.  This adds
+[tracking]({{< ref "stamped_principles/t" >}}) (git records every change)
+and [actionability]({{< ref "stamped_principles/a" >}}) (`make` re-derives
+results from source).  No specialized tooling beyond `git` and `make`.
 
 ```sh
 #!/bin/sh
-# Sensor QC with tracked provenance via datalad run
-# Requires: sh, awk, datalad
+# Sensor QC as a tracked, actionable git repository
+# Requires: sh, awk, make, git
 
 set -eu
 
@@ -298,77 +291,103 @@ PS4='> '
 
 cd "$(mktemp -d "${TMPDIR:-/tmp}/qc-XXXXXXX")"
 
-# --- setup: create a dataset and add raw data ---
-datalad create -c text2git qc-analysis
+git init qc-analysis
 cd qc-analysis
 
-TAB="$(printf '\t')"
-cat > measurements.tsv <<EOF
-sensor_id${TAB}timestamp${TAB}temperature_C
-TMP001${TAB}2026-01-15T08:00${TAB}21.3
-TMP001${TAB}2026-01-15T12:00${TAB}23.7
-TMP001${TAB}2026-01-15T16:00${TAB}22.1
-TMP002${TAB}2026-01-15T08:00${TAB}19.8
-TMP002${TAB}2026-01-15T12:00${TAB}25.4
-TMP002${TAB}2026-01-15T16:00${TAB}24.2
-TMP003${TAB}2026-01-15T08:00${TAB}20.5
-TMP003${TAB}2026-01-15T12:00${TAB}22.8
-TMP003${TAB}2026-01-15T16:00${TAB}21.1
+# --- raw data ---
+cat > measurements.csv <<'EOF'
+sensor_id,timestamp,temperature_C
+TMP001,2026-01-15T08:00,21.3
+TMP001,2026-01-15T12:00,23.7
+TMP002,2026-01-15T08:00,25.4
 EOF
-datalad save -m "Add raw sensor measurements"
 
-# --- write the analysis script ---
+# --- analysis script ---
 cat > run-qc.sh <<'SCRIPT'
 #!/bin/sh
 set -eu
 LC_ALL=C; export LC_ALL
-TAB="$(printf '\t')"
 THRESHOLD=23.0
-awk -F'\t' 'NR>1 {sum[$1]+=$3; n[$1]++}
-  END {for(s in sum) printf "%s\t%.2f\t%d\n", s, sum[s]/n[s], n[s]}' \
-  measurements.tsv | sort -t"$TAB" -k1,1 > summary.tsv
-awk -F'\t' -v thresh="$THRESHOLD" '{
+awk -F, 'NR>1 {sum[$1]+=$3; n[$1]++}
+  END {for(s in sum) printf "%s,%.2f,%d\n", s, sum[s]/n[s], n[s]}' \
+  measurements.csv | sort -t, -k1,1 > summary.csv
+awk -F, -v thresh="$THRESHOLD" '{
   status = ($2 > thresh) ? "WARNING" : "OK"
-  printf "%s\t%s\tmean=%.2f\tn=%d\n", $1, status, $2, $3
-}' summary.tsv > report.tsv
+  printf "%s,%s,mean=%.2f,n=%d\n", $1, status, $2, $3
+}' summary.csv > report.csv
 SCRIPT
 chmod +x run-qc.sh
-datalad save -m "Add QC analysis script"
 
-# --- run with provenance tracking ---
-datalad run \
-  -m "Run sensor QC analysis" \
-  --input measurements.tsv \
-  --output summary.tsv \
-  --output report.tsv \
-  ./run-qc.sh
+# --- Makefile: the actionable specification ---
+cat > Makefile <<'MF'
+.POSIX:
 
-# --- inspect: the result is tracked ---
+all: report.csv
+
+report.csv summary.csv: measurements.csv run-qc.sh
+	./run-qc.sh
+
+clean:
+	rm -f summary.csv report.csv
+
+.PHONY: all clean
+MF
+
+# --- README: tell collaborators what to do ---
+cat > README.md <<'README'
+# Sensor QC Analysis
+
+Run `make` to produce `report.csv` from `measurements.csv`.
+
+Requires: POSIX sh, awk, make.
+README
+
+# --- .gitignore: outputs are derived, not tracked ---
+cat > .gitignore <<'GI'
+summary.csv
+report.csv
+GI
+
+git add -A
+git commit -m "Initial commit: sensor QC analysis"
+
+# --- run it ---
+make
 echo "=== QC Report ==="
-cat report.tsv
+cat report.csv
 echo ""
-echo "=== Provenance (last commit) ==="
-git log -1 --format="%B"
+echo "=== Provenance: the Makefile + git log ==="
+git log --oneline
 ```
 
-Now `report.tsv` is not just a file — it is a tracked artifact whose exact
-provenance (input file, command, output) is recorded in the git history.
-Running `datalad rerun` on the last commit will re-execute `run-qc.sh` and
-verify that the output has not changed.
+The `Makefile` is the actionable specification: it declares that `report.csv`
+depends on `measurements.csv` and `run-qc.sh`, and `make` will only re-run
+the analysis when an input changes.  The `README.md` tells a collaborator
+everything they need: run `make`.  Git tracks the full history.
 
-### Scenario 3: Containerized execution with cowsay (+ P)
+This is a substantial improvement over a loose script: `git clone` + `make`
+is all anyone needs to reproduce the result.  But `make` records *what*
+to run, not *what environment* to run it in — the host's `awk` version is
+still implicit.
 
-To pin the computational environment and guarantee identical output on any
-machine, we can run the analysis inside a container.  This scenario uses the
-classic [`lolcow`](https://hub.docker.com/r/godlovedc/lolcow) container
-available from Docker Hub (usable via
-[Apptainer/Singularity](https://apptainer.org/)) to present the QC results
-in style:
+### Scenario 3: Containerized execution with Alpine (+ P)
+
+To pin the computational environment, we run the analysis inside a minimal
+[Alpine Linux](https://hub.docker.com/_/alpine) container (~3 MB as a `.sif`
+image).  Alpine includes BusyBox `awk` — exactly what our script needs,
+nothing more.
+
+The examples below use [Singularity](https://sylabs.io/singularity/) to pull
+and execute the container.  The same approach works with
+[Apptainer](https://apptainer.org/) (the open-source fork — just replace
+`singularity` with `apptainer`), or with Docker/Podman if you prefer an
+OCI-native workflow (`docker run --rm -v "$PWD:$PWD" -w "$PWD" alpine:3.21
+./run-qc.sh`).
 
 ```sh
 #!/bin/sh
-# Sensor QC with containerized report via lolcow/cowsay
-# Requires: sh, awk, apptainer (or singularity)
+# Sensor QC with containerized execution via Alpine
+# Requires: sh, awk, make, git, singularity
 
 set -eu
 
@@ -377,64 +396,90 @@ PS4='> '
 
 cd "$(mktemp -d "${TMPDIR:-/tmp}/qc-XXXXXXX")"
 
-# Detect container runtime
-if command -v apptainer >/dev/null 2>&1; then
-  RUNNER=apptainer
-elif command -v singularity >/dev/null 2>&1; then
-  RUNNER=singularity
-else
-  echo "ERROR: apptainer or singularity required" >&2
-  exit 1
-fi
+# --- pull a minimal container image ---
+singularity pull docker://alpine:3.21
 
-# --- pull the container image ---
-$RUNNER pull docker://godlovedc/lolcow
+git init qc-analysis
+cd qc-analysis
 
-# --- generate data and run QC (same as Scenario 1) ---
-TAB="$(printf '\t')"
-cat > measurements.tsv <<EOF
-sensor_id${TAB}timestamp${TAB}temperature_C
-TMP001${TAB}2026-01-15T08:00${TAB}21.3
-TMP001${TAB}2026-01-15T12:00${TAB}23.7
-TMP001${TAB}2026-01-15T16:00${TAB}22.1
-TMP002${TAB}2026-01-15T08:00${TAB}19.8
-TMP002${TAB}2026-01-15T12:00${TAB}25.4
-TMP002${TAB}2026-01-15T16:00${TAB}24.2
-TMP003${TAB}2026-01-15T08:00${TAB}20.5
-TMP003${TAB}2026-01-15T12:00${TAB}22.8
-TMP003${TAB}2026-01-15T16:00${TAB}21.1
+# --- same data and script as Scenario 2 ---
+cat > measurements.csv <<'EOF'
+sensor_id,timestamp,temperature_C
+TMP001,2026-01-15T08:00,21.3
+TMP001,2026-01-15T12:00,23.7
+TMP002,2026-01-15T08:00,25.4
 EOF
 
+cat > run-qc.sh <<'SCRIPT'
+#!/bin/sh
+set -eu
 LC_ALL=C; export LC_ALL
-awk -F'\t' 'NR>1 {sum[$1]+=$3; n[$1]++}
-  END {for(s in sum) printf "%s\t%.2f\t%d\n", s, sum[s]/n[s], n[s]}' \
-  measurements.tsv | sort -t"$TAB" -k1,1 > summary.tsv
-
-awk -F'\t' -v thresh=23.0 '{
+THRESHOLD=23.0
+awk -F, 'NR>1 {sum[$1]+=$3; n[$1]++}
+  END {for(s in sum) printf "%s,%.2f,%d\n", s, sum[s]/n[s], n[s]}' \
+  measurements.csv | sort -t, -k1,1 > summary.csv
+awk -F, -v thresh="$THRESHOLD" '{
   status = ($2 > thresh) ? "WARNING" : "OK"
-  printf "%s %s (mean=%.2f, n=%d)\n", $1, status, $2, $3
-}' summary.tsv > report.txt
+  printf "%s,%s,mean=%.2f,n=%d\n", $1, status, $2, $3
+}' summary.csv > report.csv
+SCRIPT
+chmod +x run-qc.sh
 
-# --- present the report inside the container ---
-$RUNNER exec --cleanenv lolcow_latest.sif cowsay -f tux \
-  "$(cat report.txt)"
+# --- Makefile: run inside the container ---
+cat > Makefile <<'MF'
+.POSIX:
+SIF = ../alpine_3.21.sif
+
+all: report.csv
+
+report.csv summary.csv: measurements.csv run-qc.sh $(SIF)
+	singularity exec --cleanenv $(SIF) ./run-qc.sh
+
+clean:
+	rm -f summary.csv report.csv
+
+.PHONY: all clean
+MF
+
+cat > .gitignore <<'GI'
+summary.csv
+report.csv
+GI
+
+cat > README.md <<'README'
+# Sensor QC Analysis (containerized)
+
+Run `make` to produce `report.csv` from `measurements.csv`.
+
+The analysis runs inside an Alpine Linux container to guarantee
+identical results regardless of the host system's awk version.
+
+Requires: POSIX sh, make, singularity (or apptainer).
+The container image (`alpine_3.21.sif`) must be present in the
+parent directory — see Makefile for details.
+README
+
+git add -A
+git commit -m "Initial commit: containerized sensor QC"
+
+# --- run it ---
+make
+echo "=== QC Report ==="
+cat report.csv
 ```
 
-The container image reference is specified but **not pinned** — `docker://godlovedc/lolcow`
-resolves to the `latest` tag, which could change at any time.  The script
-gains [portability]({{< ref "stamped_principles/p" >}}) (no longer depends on
-whatever happens to be installed on the host), but it **loses properties** it
-previously had:
+Now every collaborator gets the same BusyBox `awk` regardless of whether their
+host has `gawk`, `mawk`, or something else.  This demonstrates
+[portability]({{< ref "stamped_principles/p" >}}): the script no longer
+depends on whatever happens to be installed on the host.
 
-- **S is weakened** — the script depends on Docker Hub being available and
-  serving this specific image.  If the hub goes down or the image is removed,
-  the script breaks.
-- **T is weak** — we know we used "lolcow", but not *which exact version*.
-  The `latest` tag is mutable; tomorrow's `latest` could contain different
-  binaries.
+But the container reference `docker://alpine:3.21` is **not pinned** —
+the `3.21` tag is mutable (Alpine publishes point releases under the same
+tag).  And the script **depends on Docker Hub being available**: if the
+network is down or the registry is unavailable, the `pull` fails.
 
-This is a real trade-off: adding a container improved portability but
-introduced an external, mutable dependency.
+- **S is weakened** — the container lives on Docker Hub, not in our repository.
+- **T is weak** — we know "Alpine 3.21" but not which exact build.
 
 ### Scenario 3b: Pinning the container by digest (recovering T)
 
@@ -444,11 +489,11 @@ content-addressed **digest** rather than a mutable tag.
 The only line that changes from Scenario 3:
 
 ```sh
-# Before (mutable tag — could change):
-$RUNNER pull docker://godlovedc/lolcow
+# Before (mutable tag — could change between builds):
+singularity pull docker://alpine:3.21
 
 # After (pinned digest — immutable):
-$RUNNER pull docker://godlovedc/lolcow@sha256:a692b57abc43035b197b10390ea2c12855d21649f2ea2cc28094d18b93360eeb
+singularity pull docker://alpine@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c
 ```
 
 With a digest, two people running the script a year apart will pull
@@ -458,29 +503,23 @@ different bits for the same `sha256`.  This recovers
 exactly which environment was used, down to every library version.
 
 But [self-containment]({{< ref "stamped_principles/s" >}}) is **still
-missing**.  The image lives on Docker Hub, not inside our project.  If
-`godlovedc` deletes the repository, or Docker Hub imposes pull rate limits, or
-the network is simply unavailable (an air-gapped HPC cluster), the script
-cannot obtain its dependency.  The digest is a precise *reference*, not a
-local *copy*.
+missing**.  The image lives on Docker Hub, not inside our project.  If the
+registry imposes pull rate limits, or the network is simply unavailable (an
+air-gapped HPC cluster), the script cannot obtain its dependency.  The digest
+is a precise *reference*, not a local *copy*.
 
 This is the gap that Scenario 4 closes.
 
-### Scenario 4: Modular composition with sub-datasets (+ M, D, recovering S)
+### Scenario 4: Container committed to git (recovering S, + M, D)
 
-In a real project, raw data and container images typically live in separate
-repositories that are composed together.  This final scenario uses DataLad
-sub-datasets for [modularity]({{< ref "stamped_principles/m" >}}) and
-[distributability]({{< ref "stamped_principles/d" >}}).  Critically, `datalad
-containers-add` **downloads the image and stores it in git-annex** — the
-container is now *inside* the dataset, content-addressed and distributable
-alongside the data.  This recovers [self-containment]({{< ref
-"stamped_principles/s" >}}) that was lost in Scenarios 3 and 3b:
+The Alpine `.sif` image is only ~3 MB — small enough to commit directly
+to the git repository.  Now the container travels *with* the code and data.
+No network access needed to reproduce.
 
 ```sh
 #!/bin/sh
-# Sensor QC with modular sub-datasets for data and containers
-# Requires: sh, awk, datalad, datalad-container, apptainer/singularity
+# Sensor QC: fully self-contained with container in git
+# Requires: sh, make, singularity
 
 set -eu
 
@@ -489,99 +528,122 @@ PS4='> '
 
 cd "$(mktemp -d "${TMPDIR:-/tmp}/qc-XXXXXXX")"
 
-# --- setup: create the analysis superdataset ---
-datalad create -c text2git qc-project
-cd qc-project
+# --- build the container image from a pinned digest ---
+singularity pull docker://alpine@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c
+mv alpine_latest.sif env.sif
 
-# --- modular raw data as a sub-dataset ---
-datalad create -d . -c text2git raw-data
-TAB="$(printf '\t')"
-cat > raw-data/measurements.tsv <<EOF
-sensor_id${TAB}timestamp${TAB}temperature_C
-TMP001${TAB}2026-01-15T08:00${TAB}21.3
-TMP001${TAB}2026-01-15T12:00${TAB}23.7
-TMP001${TAB}2026-01-15T16:00${TAB}22.1
-TMP002${TAB}2026-01-15T08:00${TAB}19.8
-TMP002${TAB}2026-01-15T12:00${TAB}25.4
-TMP002${TAB}2026-01-15T16:00${TAB}24.2
-TMP003${TAB}2026-01-15T08:00${TAB}20.5
-TMP003${TAB}2026-01-15T12:00${TAB}22.8
-TMP003${TAB}2026-01-15T16:00${TAB}21.1
+git init qc-analysis
+cd qc-analysis
+
+# --- commit the container image into the repository ---
+cp ../env.sif .
+git add env.sif
+git commit -m "Add Alpine container image (3 MB, pinned by digest)"
+
+# --- raw data as a git submodule (modularity) ---
+(
+  cd ..
+  git init --bare raw-data.git
+  git clone raw-data.git raw-data-work
+  cd raw-data-work
+  cat > measurements.csv <<'EOF'
+sensor_id,timestamp,temperature_C
+TMP001,2026-01-15T08:00,21.3
+TMP001,2026-01-15T12:00,23.7
+TMP002,2026-01-15T08:00,25.4
 EOF
-datalad save -d raw-data -m "Add raw sensor measurements"
-datalad save -m "Register raw-data sub-dataset"
+  git add measurements.csv
+  git commit -m "Add raw sensor measurements"
+  git push
+)
+git submodule add ../raw-data.git raw-data
 
-# --- add a container for the report presentation ---
-datalad containers-add lolcow \
-  --url docker://godlovedc/lolcow \
-  --call-fmt '{img} exec {img_dspath} {cmd}'
-
-# --- write the analysis script ---
+# --- analysis script ---
 cat > run-qc.sh <<'SCRIPT'
 #!/bin/sh
 set -eu
 LC_ALL=C; export LC_ALL
-TAB="$(printf '\t')"
-awk -F'\t' 'NR>1 {sum[$1]+=$3; n[$1]++}
-  END {for(s in sum) printf "%s\t%.2f\t%d\n", s, sum[s]/n[s], n[s]}' \
-  raw-data/measurements.tsv | sort -t"$TAB" -k1,1 > summary.tsv
-awk -F'\t' -v thresh=23.0 '{
+THRESHOLD=23.0
+awk -F, 'NR>1 {sum[$1]+=$3; n[$1]++}
+  END {for(s in sum) printf "%s,%.2f,%d\n", s, sum[s]/n[s], n[s]}' \
+  raw-data/measurements.csv | sort -t, -k1,1 > summary.csv
+awk -F, -v thresh="$THRESHOLD" '{
   status = ($2 > thresh) ? "WARNING" : "OK"
-  printf "%s %s (mean=%.2f, n=%d)\n", $1, status, $2, $3
-}' summary.tsv > report.txt
+  printf "%s,%s,mean=%.2f,n=%d\n", $1, status, $2, $3
+}' summary.csv > report.csv
 SCRIPT
 chmod +x run-qc.sh
-datalad save -m "Add QC analysis script"
 
-# --- run with full provenance ---
-datalad containers-run \
-  -n lolcow \
-  -m "Run sensor QC and present report" \
-  --input raw-data/measurements.tsv \
-  --output summary.tsv \
-  --output report.txt \
-  ./run-qc.sh
+# --- Makefile: run inside the local container ---
+cat > Makefile <<'MF'
+.POSIX:
+SIF = env.sif
 
+all: report.csv
+
+report.csv summary.csv: raw-data/measurements.csv run-qc.sh $(SIF)
+	singularity exec --cleanenv $(SIF) ./run-qc.sh
+
+clean:
+	rm -f summary.csv report.csv
+
+.PHONY: all clean
+MF
+
+cat > .gitignore <<'GI'
+summary.csv
+report.csv
+GI
+
+cat > README.md <<'README'
+# Sensor QC Analysis
+
+Run `make` to produce `report.csv` from raw sensor measurements.
+
+The analysis runs inside an Alpine Linux container (`env.sif`)
+that is committed to this repository — no network access needed.
+Raw data lives in the `raw-data/` git submodule.
+
+    git clone --recurse-submodules <url>
+    make
+
+Requires: POSIX sh, make, singularity (or apptainer).
+README
+
+git add -A
+git commit -m "Add analysis script, Makefile, and README"
+
+# --- run it ---
+make
 echo "=== QC Report ==="
-cat report.txt
+cat report.csv
 echo ""
-echo "=== Dataset structure ==="
-datalad subdatasets
+echo "=== Repository structure ==="
+git submodule status
+git log --oneline
 ```
 
-This recovers the full STAMPED stack — including the properties that were lost
-when we introduced an external container dependency in Scenarios 3/3b:
+This recovers the full STAMPED stack using only `git`, `make`, and
+`singularity` — no specialized research data management tools required:
 
 | Property | How it is realized |
 |---|---|
-| **S** — Self-contained | Raw data, analysis script, and container image all live *within* the dataset (git-annex stores the `.sif`). No external service needed to reproduce. |
-| **T** — Tracked | `datalad containers-run` records input files, output files, container identity, and the exact command in a single commit |
-| **A** — Actionable | `datalad rerun` re-executes the analysis; the provenance is not just metadata but a re-executable specification |
-| **M** — Modular | Raw data is a separate sub-dataset, reusable across projects without duplication |
-| **P** — Portable | The container pins the compute environment; POSIX shell + `LC_ALL=C` pins the script |
-| **E** — Ephemeral | The entire analysis runs in a temp directory built from scratch |
-| **D** — Distributable | Sub-datasets can be published independently; collaborators `datalad clone` + `datalad get` to obtain data and container on demand. Distribution can happen through multiple channels simultaneously (see below). |
+| **S** — Self-contained | Container image (`env.sif`), analysis script, and Makefile are all committed to git. Raw data is pinned via a git submodule at a specific commit. `git clone --recurse-submodules` + `make` is all anyone needs. |
+| **T** — Tracked | Git records every change to code, data (in the submodule), and even the container image. The Makefile declares the exact dependency graph. |
+| **A** — Actionable | `make` re-derives results from source. The `README.md` tells a collaborator exactly what to run. |
+| **M** — Modular | Raw data is a separate git repository included as a submodule — reusable in other projects, versioned independently. |
+| **P** — Portable | The container pins the `awk` implementation; POSIX shell + `LC_ALL=C` pins the script behavior. |
+| **E** — Ephemeral | The entire analysis runs in a temp directory built from scratch. |
+| **D** — Distributable | Standard `git push` to any remote. The repository can be pushed to multiple hosts (GitHub, GitLab, institutional server) simultaneously. For archival, `git bundle` creates a single-file snapshot of the entire history. |
 
-**Distribution is not limited to a single channel.**  The same dataset can be
-published to GitHub (git history + annex pointers), while the large files
-(raw data, container image) are exported to an archival repository such as
-Figshare via `datalad export-to-figshare` or pushed to any other
-git-annex special remote (S3, rsync, OSF, etc.).  Crucially, git-annex records
-each remote as an **availability source** within the dataset itself — a
-`datalad get` will transparently try all known locations.  This means:
-
-- If GitHub is reachable but Figshare is down, data is still obtainable (and
-  vice versa).
-- The Figshare deposit gets a **DOI**, making the dataset citable and
-  discoverable independently of the git hosting.
-- The availability information (which remotes hold which files) travels with
-  the dataset — a fresh `datalad clone` inherits all known sources without
-  additional configuration.
-
-This multi-channel distribution with retained availability linkage is what
-elevates D beyond "I can copy this somewhere": the research object *knows*
-where its parts are available and can assemble itself from whichever sources
-are reachable.
+For projects where the data or container images outgrow what is practical to
+commit to git directly, tools like [git-annex](https://git-annex.branchable.com/)
+or [DataLad](https://www.datalad.org/) extend this pattern with
+content-addressed storage and multi-remote availability tracking — the same
+dataset can be distributed to GitHub, Figshare (with a DOI), S3, or
+institutional archives, and the availability information (which remotes hold
+which files) travels with the dataset so that a fresh clone can assemble itself
+from whichever sources are reachable.
 
 The progression across all four scenarios illustrates a general pattern: each
 STAMPED property you add removes a class of failure, but introducing an
@@ -602,8 +664,8 @@ external dependency (the container) can *remove* properties you already had
    setting `PS4='> '` ensures consistent trace output when someone runs
    `bash -x script.sh` externally.
 
-4. **Print version information early**: `git annex version | head -n 1` or
-   `datalad --version` at the top helps recipients match your environment.
+4. **Print version information early**: `awk --version | head -n 1` or
+   `git --version` at the top helps recipients match your environment.
 
 5. **Do not clean up on success**: Leave the temp directory intact so you (or
    the recipient) can inspect the state.  `/tmp` is cleaned on reboot.
