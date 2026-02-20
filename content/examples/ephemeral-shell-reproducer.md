@@ -645,6 +645,22 @@ institutional archives, and the availability information (which remotes hold
 which files) travels with the dataset so that a fresh clone can assemble itself
 from whichever sources are reachable.
 
+In particular,
+[datalad-container](https://github.com/datalad/datalad-container) simplifies
+container management within DataLad datasets: it maintains a local catalog of
+container images (tracked by git-annex), and its `datalad containers-run`
+command records which container was used for each computation — adding
+container identity to the provenance chain automatically.
+
+For neuroimaging and other scientific domains,
+[ReproNim/containers](https://github.com/ReproNim/containers) provides a
+ready-made DataLad dataset of popular containerized tools (FreeSurfer,
+fMRIPrep, BIDS Apps, etc.).  It is itself a STAMPED research object: a
+[modular]({{< ref "stamped_principles/m" >}}) collection that can be included
+as a git submodule or DataLad sub-dataset, providing
+[portable]({{< ref "stamped_principles/p" >}}) access to pinned container
+versions without each project having to manage its own images.
+
 The progression across all four scenarios illustrates a general pattern: each
 STAMPED property you add removes a class of failure, but introducing an
 external dependency (the container) can *remove* properties you already had
