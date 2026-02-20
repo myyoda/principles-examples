@@ -189,6 +189,9 @@ makes it "green", and the test prevents regressions.
 
 ## Example scenarios
 
+
+TODO: rework examples as a spectrum of STAMPED scenarios - from a simple self-contained script to a script producing a STAMPED object with its own provenance etc recorded; to the one including container one way or another; to the one modularly including some other module (like ///repronim/containers) or some original "sub-dataset".  I think  for container we could use some basic lolcow container which would produce us a nice "asciiart!"
+
 ### Scenario 1: git-annex fails to sync unlocked file content
 
 A user reports that after unlocking a file, modifying it, and committing, `git
