@@ -48,7 +48,7 @@ test -e precious.dat
 The script fails — `set -e` aborts as soon as `test -e precious.dat` returns
 non-zero.  The trace (`set -x`) already tells the full story:
 
-```
+```output
 > touch preciouss.dat
 > ls
 preciouss.dat
@@ -126,6 +126,24 @@ The script creates everything it needs from scratch — `touch`, `mkdir`,
 user's machine.  This makes the script
 [self-contained]({{< ref "stamped_principles/s" >}}) — anyone with POSIX
 `sh` can run it.
+
+**5. Tracked externals**
+
+When a reproducer *must* pull in external materials, that is fine — `git clone`,
+`docker pull`, `wget` are all normal.  The key is to reference **exact,
+immutable identifiers** so the script stays
+[tracked]({{< ref "stamped_principles/t" >}}):
+
+- **git** — pin to a commit hash or tag, not a branch:
+  `git clone --branch v1.2.3 https://github.com/org/repo`
+- **containers** — pin by digest, not a mutable tag:
+  `docker pull alpine@sha256:a8560b36e8...`
+- **URLs** — use version-pinned URLs or archived snapshots
+  (e.g., [Wayback Machine](https://web.archive.org/) links) rather than
+  a "latest" URL that may change or vanish.
+
+The script does not need to *contain* every byte — it needs to *point* to an
+exact, reproducible state of every dependency.
 
 ## STAMPED analysis
 
