@@ -1,0 +1,19 @@
+{{- /* render-codeblock-sh: handles ```sh blocks.
+     - Strips lines matching "# pragma:" before rendering.
+     - Detects shebang (#!) → "script" label; otherwise → "snippet" label.
+*/ -}}
+{{- $raw := .Inner -}}
+{{- $filtered := slice -}}
+{{- range split $raw "\n" -}}
+  {{- if not (findRE `^\s*#\s*pragma:` .) -}}
+    {{- $filtered = $filtered | append . -}}
+  {{- end -}}
+{{- end -}}
+{{- $code := delimit $filtered "\n" -}}
+{{- $isScript := hasPrefix $code "#!" -}}
+{{- $class := cond $isScript "codeblock-script" "codeblock-snippet" -}}
+{{- $label := cond $isScript "script" "snippet" -}}
+<div class="codeblock-wrapper {{ $class }}">
+  <span class="codeblock-label">{{ $label }}</span>
+  {{- highlight $code .Type .Options -}}
+</div>

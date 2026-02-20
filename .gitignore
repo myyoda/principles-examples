@@ -10,3 +10,5 @@ resources/_gen/
 .wget-hsts
 stamped-examples.md
 stamped-examples.pdf
+.cache
+uv.lock

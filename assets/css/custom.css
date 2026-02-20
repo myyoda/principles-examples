@@ -164,3 +164,76 @@ a[href*="/aspirations/"].rounded-md:hover {
   border: 1px solid #bbdefb;
   color: #1565c0;
 }
+
+/* ---------------------------------------------------------------------------
+   Code Block Type Styling
+   Three visually distinct block types: script, output, snippet.
+   Rendered by layouts/_default/_markup/render-codeblock-{sh,output}.html
+   --------------------------------------------------------------------------- */
+
+.codeblock-wrapper {
+  position: relative;
+  border-left: 3px solid;
+  border-radius: 0.375rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.codeblock-wrapper .highlight {
+  margin: 0 !important;
+}
+
+.codeblock-label {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-bottom-left-radius: 0.25rem;
+  line-height: 1.4;
+  z-index: 1;
+  transition: opacity 0.15s ease;
+}
+
+.codeblock-wrapper:hover .codeblock-label {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── script: teal ─────────────────────────────────────────── */
+.codeblock-script {
+  border-left-color: #0d9488;
+}
+.codeblock-script .codeblock-label {
+  background-color: #0d9488;
+  color: #ffffff;
+}
+
+/* ── output: gray ─────────────────────────────────────────── */
+.codeblock-output {
+  border-left-color: #6b7280;
+}
+.codeblock-output .codeblock-label {
+  background-color: #6b7280;
+  color: #ffffff;
+}
+.codeblock-output pre {
+  background-color: var(--color-neutral-100, #f5f5f5);
+  padding: 0.75rem 1rem;
+  margin: 0;
+}
+.dark .codeblock-output pre {
+  background-color: var(--color-neutral-800, #262626);
+}
+
+/* ── snippet: amber ───────────────────────────────────────── */
+.codeblock-snippet {
+  border-left-color: #d97706;
+}
+.codeblock-snippet .codeblock-label {
+  background-color: #d97706;
+  color: #ffffff;
+}

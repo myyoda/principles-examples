@@ -1,0 +1,7 @@
+{{- /* render-codeblock-output: handles ```output blocks.
+     Renders as plain preformatted text with "output" label.
+*/ -}}
+<div class="codeblock-wrapper codeblock-output">
+  <span class="codeblock-label">output</span>
+  <div class="highlight"><pre tabindex="0"><code>{{ .Inner }}</code></pre></div>
+</div>
