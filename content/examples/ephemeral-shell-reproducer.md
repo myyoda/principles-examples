@@ -200,8 +200,9 @@ requires only POSIX `sh` and `awk` — nothing else to install.
 
 ```sh
 #!/bin/sh
+# pragma: testrun scenario-1
+# pragma: requires sh awk
 # Sensor QC: compute per-sensor mean temperature, flag outliers
-# Requires: sh, awk
 
 set -eu
 
@@ -281,8 +282,9 @@ results from source).  No specialized tooling beyond `git` and `make`.
 
 ```sh
 #!/bin/sh
+# pragma: testrun scenario-2
+# pragma: requires sh awk make git
 # Sensor QC as a tracked, actionable git repository
-# Requires: sh, awk, make, git
 
 set -eu
 
@@ -386,8 +388,10 @@ OCI-native workflow (`docker run --rm -v "$PWD:$PWD" -w "$PWD" alpine:3.21
 
 ```sh
 #!/bin/sh
+# pragma: testrun scenario-3
+# pragma: requires sh awk make git singularity
+# pragma: timeout 120
 # Sensor QC with containerized execution via Alpine
-# Requires: sh, awk, make, git, singularity
 
 set -eu
 
@@ -518,8 +522,10 @@ No network access needed to reproduce.
 
 ```sh
 #!/bin/sh
+# pragma: testrun scenario-4
+# pragma: requires sh make git singularity
+# pragma: timeout 120
 # Sensor QC: fully self-contained with container in git
-# Requires: sh, make, singularity
 
 set -eu
 
@@ -529,8 +535,7 @@ PS4='> '
 cd "$(mktemp -d "${TMPDIR:-/tmp}/qc-XXXXXXX")"
 
 # --- build the container image from a pinned digest ---
-singularity pull docker://alpine@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c
-mv alpine_latest.sif env.sif
+singularity pull env.sif docker://alpine@sha256:a8560b36e8b8210634f77d9f7f9efd7ffa463e380b75e2e74aff4511df3ef88c
 
 git init qc-analysis
 cd qc-analysis
@@ -556,7 +561,10 @@ EOF
   git commit -m "Add raw sensor measurements"
   git push
 )
-git submodule add ../raw-data.git raw-data
+# In a real project, use a proper URL (https://... or git@...:...).
+# For this local demo, we must allow the file:// transport
+# (restricted by default since Git 2.38.1, CVE-2022-39253).
+git -c protocol.file.allow=always submodule add ../raw-data.git raw-data
 
 # --- analysis script ---
 cat > run-qc.sh <<'SCRIPT'
