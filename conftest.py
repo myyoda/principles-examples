@@ -6,45 +6,27 @@ See the plan at .claude/plans/ for the full annotation format.
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
+from pathlib import Path
 
 import pytest
 from sybil import Document, Region, Sybil
 
-# Regex: fenced code block with sh or bash language tag.
-# Captures the code content between the opening and closing fences.
-_FENCE_RE = re.compile(
-    r"^```(?:sh|bash)\s*\n(.*?)^```",
-    re.MULTILINE | re.DOTALL,
-)
-
-
-def _parse_pragmas(code: str) -> dict[str, str]:
-    """Extract ``# pragma: key value`` directives from script text."""
-    pragmas: dict[str, str] = {}
-    for line in code.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("# pragma:"):
-            # e.g. "# pragma: testrun scenario-1"
-            parts = stripped.split(None, 3)  # ['#', 'pragma:', key, value...]
-            if len(parts) >= 3:
-                key = parts[2]
-                value = parts[3] if len(parts) > 3 else ""
-                pragmas[key] = value
-    return pragmas
+sys.path.insert(0, str(Path(__file__).resolve().parent / "scripts"))
+from snippet_parser import FENCE_RE, parse_pragmas
 
 
 def shell_script_parser(document: Document):
     """Find ``sh`` code blocks containing ``# pragma: testrun`` and yield Regions."""
-    for m in _FENCE_RE.finditer(document.text):
+    for m in FENCE_RE.finditer(document.text):
         code = m.group(1)
         if "# pragma: testrun" not in code:
             continue
-        pragmas = _parse_pragmas(code)
+        pragmas = parse_pragmas(code)
         yield Region(
             start=m.start(),
             end=m.end(),

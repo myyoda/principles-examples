@@ -1,0 +1,421 @@
+#!/usr/bin/env python3
+"""Materialize example git repositories as branches.
+
+Scans Markdown files in ``content/examples/`` for shell code blocks that
+carry both ``# pragma: testrun`` and ``# pragma: materialize`` annotations.
+Each annotated script is executed in a temporary directory and the resulting
+git repository sub-directories are force-pushed to branches under the
+``examples/`` namespace.
+
+Branch naming::
+
+    examples/{file-stem}/{testrun-id}/{repo-subdir}
+
+A SHA-256 hash of the script content is stored in the branch's latest commit
+message as a ``Script-Hash:`` trailer.  If the hash matches the existing
+branch, regeneration is skipped.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from snippet_parser import ScriptBlock, iter_script_blocks
+
+# Fixed epoch for deterministic git commits inside the example scripts.
+FIXED_EPOCH = "2000-01-01T00:00:00+00:00"
+
+CONTENT_DIR = Path("content/examples")
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def script_hash(code: str) -> str:
+    """Return the SHA-256 hex digest of *code*."""
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
+def branch_name(file_stem: str, testrun_id: str, repo_subdir: str) -> str:
+    """Compute the target branch name."""
+    return f"examples/{file_stem}/{testrun_id}/{repo_subdir}"
+
+
+def remote_url_for_push(remote: str) -> str:
+    """Determine the remote URL suitable for push operations.
+
+    In GitHub Actions ``GITHUB_REPOSITORY`` is always set.  Otherwise fall
+    back to the configured remote URL.
+    """
+    gh_repo = os.environ.get("GITHUB_REPOSITORY")
+    if gh_repo:
+        return f"https://github.com/{gh_repo}"
+    result = subprocess.run(
+        ["git", "remote", "get-url", remote],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return result.stdout.strip()
+    return ""
+
+
+def existing_script_hash(remote: str, branch: str) -> str | None:
+    """Read ``Script-Hash:`` from the latest commit message on *branch*.
+
+    Returns ``None`` if the branch doesn't exist or has no such trailer.
+    """
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%B", f"{remote}/{branch}"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    for line in result.stdout.splitlines():
+        if line.startswith("Script-Hash:"):
+            return line.split(":", 1)[1].strip()
+    return None
+
+
+def fetch_remote_refs(remote: str) -> None:
+    """Fetch remote refs so that branch lookups work."""
+    subprocess.run(
+        ["git", "fetch", remote, "--prune"],
+        capture_output=True,
+    )
+
+
+def rewrite_submodule_urls(
+    repo_dir: Path,
+    file_stem: str,
+    testrun_id: str,
+    remote_url: str,
+) -> None:
+    """Rewrite ``.gitmodules`` URLs from relative paths to remote branches.
+
+    A relative URL like ``../raw-data.git`` is replaced with the HTTPS URL
+    of the branch ``examples/{file_stem}/{testrun_id}/{subdir}`` in the
+    same repository, where *subdir* is the bare-repo name without ``.git``.
+    """
+    gitmodules = repo_dir / ".gitmodules"
+    if not gitmodules.exists():
+        return
+
+    text = gitmodules.read_text(encoding="utf-8")
+    # Match lines like: url = ../raw-data.git
+    url_re = re.compile(r"^(\s*url\s*=\s*)(\.\./[^\s]+\.git)\s*$", re.MULTILINE)
+
+    def _replace(m: re.Match) -> str:
+        prefix = m.group(1)
+        rel_path = m.group(2)  # e.g. ../raw-data.git
+        # Extract the subdir name: ../raw-data.git → raw-data
+        subdir = rel_path.rsplit("/", 1)[-1]
+        if subdir.endswith(".git"):
+            subdir = subdir[:-4]
+        # Also try {subdir}-work as the materialized branch name
+        # (convention: bare repo "foo.git" → working dir "foo-work")
+        target_branch = branch_name(file_stem, testrun_id, subdir + "-work")
+        return f"{prefix}{remote_url}\n\tbranch = {target_branch}"
+
+    new_text = url_re.sub(_replace, text)
+    if new_text != text:
+        gitmodules.write_text(new_text, encoding="utf-8")
+        subprocess.run(
+            ["git", "-C", str(repo_dir), "add", ".gitmodules"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo_dir), "commit", "--amend", "--no-edit"],
+            check=True,
+            env={
+                **os.environ,
+                "GIT_AUTHOR_DATE": FIXED_EPOCH,
+                "GIT_COMMITTER_DATE": FIXED_EPOCH,
+            },
+        )
+
+
+def push_repo_to_branch(
+    repo_dir: Path,
+    target_branch: str,
+    remote: str,
+    remote_url: str,
+    dry_run: bool,
+) -> None:
+    """Force-push *repo_dir*'s history to *target_branch* on *remote_url*."""
+    if dry_run:
+        print(f"  dry-run: would push {repo_dir} → {target_branch}")
+        return
+    push_url = remote_url or remote
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_dir),
+            "push",
+            "--force",
+            push_url,
+            f"HEAD:refs/heads/{target_branch}",
+        ],
+        check=True,
+    )
+    print(f"  pushed → {target_branch}")
+
+
+def create_worktree(
+    repo_dir: Path,
+    target_branch: str,
+    worktrees_under: Path,
+) -> None:
+    """Copy the repo content into a worktree-like directory for inspection."""
+    dest = worktrees_under / target_branch
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(repo_dir, dest)
+    print(f"  worktree → {dest}")
+
+
+def execute_script(
+    block: ScriptBlock,
+    strict: bool,
+) -> Path | None:
+    """Run a script block in a temp dir and return the temp dir path.
+
+    Returns ``None`` if execution was skipped (missing tools).
+    """
+    pragmas = block.pragmas
+    requires = str(pragmas.get("requires", "sh")).split()
+    missing = [t for t in requires if not shutil.which(t)]
+    if missing:
+        if strict:
+            print(f"  ERROR: missing tools: {', '.join(missing)}", file=sys.stderr)
+            sys.exit(1)
+        print(f"  skip: missing {', '.join(missing)}")
+        return None
+
+    timeout = int(str(pragmas.get("timeout", "60")))
+    testrun_id = str(pragmas.get("testrun", "unnamed"))
+
+    tmpdir = Path(tempfile.mkdtemp(prefix=f"materialize-{testrun_id}-"))
+    script_path = tmpdir / "run.sh"
+    script_path.write_text(block.code, encoding="utf-8")
+    script_path.chmod(script_path.stat().st_mode | stat.S_IEXEC)
+
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_DATE": FIXED_EPOCH,
+        "GIT_COMMITTER_DATE": FIXED_EPOCH,
+        # Point TMPDIR at our tmpdir so mktemp inside the script creates
+        # subdirectories we can find afterwards.
+        "TMPDIR": str(tmpdir),
+    }
+
+    try:
+        subprocess.run(
+            ["sh", str(script_path)],
+            timeout=timeout,
+            check=True,
+            env=env,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"  ERROR: script timed out after {timeout}s", file=sys.stderr)
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        return None
+    except subprocess.CalledProcessError as exc:
+        expected_rc = int(str(pragmas.get("exitcode", "0")))
+        if exc.returncode != expected_rc:
+            print(
+                f"  ERROR: script exited {exc.returncode} (expected {expected_rc})",
+                file=sys.stderr,
+            )
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            return None
+        # Non-zero exit is expected — continue.
+
+    return tmpdir
+
+
+def add_script_hash_commit(repo_dir: Path, hash_value: str) -> None:
+    """Amend or create a marker commit with the Script-Hash trailer."""
+    # Add an empty commit with the hash trailer
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_dir),
+            "commit",
+            "--allow-empty",
+            "-m",
+            f"Materialized example\n\nScript-Hash: {hash_value}",
+        ],
+        check=True,
+        env={
+            **os.environ,
+            "GIT_AUTHOR_DATE": FIXED_EPOCH,
+            "GIT_COMMITTER_DATE": FIXED_EPOCH,
+        },
+    )
+
+
+def find_repo_subdir(tmpdir: Path, subdir_name: str) -> Path | None:
+    """Locate a git repository subdirectory in *tmpdir* (recursive search)."""
+    # The scripts cd into a mktemp dir, then create subdirs.
+    # Search recursively for the named directory that is a git repo.
+    for candidate in tmpdir.rglob(subdir_name):
+        if candidate.is_dir():
+            git_dir = candidate / ".git"
+            if git_dir.exists():
+                return candidate
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def process_block(
+    block: ScriptBlock,
+    *,
+    remote: str,
+    remote_url: str,
+    dry_run: bool,
+    strict: bool,
+    worktrees_under: Path | None,
+) -> None:
+    """Process a single script block: execute, capture, push."""
+    testrun_id = str(block.pragmas.get("testrun", "unnamed"))
+    materialize_list = block.pragmas.get("materialize", [])
+    if not isinstance(materialize_list, list):
+        materialize_list = [materialize_list]
+
+    if not materialize_list:
+        return
+
+    print(f"\n[{block.file_stem}/{testrun_id}]")
+    hash_val = script_hash(block.code)
+
+    # Check cache for all targets — skip if all match
+    if not worktrees_under:
+        all_cached = True
+        for repo_subdir in materialize_list:
+            bname = branch_name(block.file_stem, testrun_id, repo_subdir)
+            existing = existing_script_hash(remote, bname)
+            if existing != hash_val:
+                all_cached = False
+                break
+        if all_cached:
+            print(f"  cache hit (hash {hash_val[:12]}…) — skipping")
+            return
+
+    print(f"  hash {hash_val[:12]}… — executing script")
+    tmpdir = execute_script(block, strict=strict)
+    if tmpdir is None:
+        return
+
+    try:
+        for repo_subdir in materialize_list:
+            bname = branch_name(block.file_stem, testrun_id, repo_subdir)
+            repo_dir = find_repo_subdir(tmpdir, repo_subdir)
+            if repo_dir is None:
+                print(f"  WARNING: {repo_subdir} not found in {tmpdir}")
+                continue
+
+            # Verify it's a valid git repo
+            check = subprocess.run(
+                ["git", "-C", str(repo_dir), "rev-parse", "--git-dir"],
+                capture_output=True,
+            )
+            if check.returncode != 0:
+                print(f"  WARNING: {repo_subdir} is not a git repo")
+                continue
+
+            # Rewrite submodule URLs
+            if remote_url:
+                rewrite_submodule_urls(repo_dir, block.file_stem, testrun_id, remote_url)
+
+            # Add script hash marker commit
+            add_script_hash_commit(repo_dir, hash_val)
+
+            if worktrees_under:
+                create_worktree(repo_dir, bname, worktrees_under)
+            else:
+                push_repo_to_branch(repo_dir, bname, remote, remote_url, dry_run)
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Materialize example git repos as branches.",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail on missing tools instead of skipping.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Parse and execute but don't push.",
+    )
+    parser.add_argument(
+        "-r",
+        "--remote",
+        default="origin",
+        help="Git remote name (default: origin).",
+    )
+    parser.add_argument(
+        "--worktrees-under",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Create local worktree copies instead of pushing to remote.",
+    )
+    args = parser.parse_args(argv)
+
+    if not CONTENT_DIR.is_dir():
+        print(f"ERROR: {CONTENT_DIR} not found", file=sys.stderr)
+        sys.exit(1)
+
+    remote_url = ""
+    if not args.worktrees_under:
+        fetch_remote_refs(args.remote)
+        remote_url = remote_url_for_push(args.remote)
+        print(f"Remote URL: {remote_url}")
+
+    md_files = sorted(CONTENT_DIR.glob("*.md"))
+    if not md_files:
+        print("No markdown files found.")
+        return
+
+    for md_path in md_files:
+        for block in iter_script_blocks(md_path):
+            materialize_list = block.pragmas.get("materialize", [])
+            if not materialize_list:
+                continue
+            process_block(
+                block,
+                remote=args.remote,
+                remote_url=remote_url,
+                dry_run=args.dry_run,
+                strict=args.strict,
+                worktrees_under=args.worktrees_under,
+            )
+
+    print("\nDone.")
+
+
+if __name__ == "__main__":
+    main()

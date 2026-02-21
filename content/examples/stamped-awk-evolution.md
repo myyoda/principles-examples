@@ -93,6 +93,7 @@ results from source).
 #!/bin/sh
 # pragma: testrun scenario-2
 # pragma: requires sh awk make git
+# pragma: materialize grocery-analysis
 # Grocery receipt as a tracked, actionable git repository
 
 set -eux
@@ -190,6 +191,7 @@ OCI-native workflow (`docker run --rm -v "$PWD:$PWD" -w "$PWD" alpine:3.21
 # pragma: testrun scenario-3
 # pragma: requires sh awk make git singularity
 # pragma: timeout 120
+# pragma: materialize grocery-analysis
 # Grocery receipt with containerized execution via Alpine
 
 set -eux
@@ -315,6 +317,8 @@ No network access needed to reproduce.
 # pragma: testrun scenario-4
 # pragma: requires sh make git singularity
 # pragma: timeout 120
+# pragma: materialize grocery-analysis
+# pragma: materialize raw-data-work
 # Grocery receipt: fully self-contained with container in git
 
 set -eux

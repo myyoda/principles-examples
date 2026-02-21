@@ -1,11 +1,24 @@
 {{- /* render-codeblock-sh: handles ```sh blocks.
      - Strips lines matching "# pragma:" before rendering.
      - Detects shebang (#!) → "script" label; otherwise → "snippet" label.
+     - If "# pragma: materialize" is present, emits browse-example links.
 */ -}}
 {{- $raw := .Inner -}}
 {{- $filtered := slice -}}
+{{- $testrunID := "" -}}
+{{- $materializeList := slice -}}
 {{- range split $raw "\n" -}}
-  {{- if not (findRE `^\s*#\s*pragma:` .) -}}
+  {{- if findRE `^\s*#\s*pragma:` . -}}
+    {{- /* Extract testrun and materialize values before stripping */ -}}
+    {{- $trimmed := trim . " " -}}
+    {{- if findRE `^#\s*pragma:\s*testrun\s+` $trimmed -}}
+      {{- $testrunID = replaceRE `^#\s*pragma:\s*testrun\s+` "" $trimmed -}}
+    {{- end -}}
+    {{- if findRE `^#\s*pragma:\s*materialize\s+` $trimmed -}}
+      {{- $repo := replaceRE `^#\s*pragma:\s*materialize\s+` "" $trimmed -}}
+      {{- $materializeList = $materializeList | append $repo -}}
+    {{- end -}}
+  {{- else -}}
     {{- $filtered = $filtered | append . -}}
   {{- end -}}
 {{- end -}}
@@ -17,3 +30,12 @@
   <span class="codeblock-label">{{ $label }}</span>
   {{- highlight $code .Type .Options -}}
 </div>
+{{- if and (gt (len $materializeList) 0) (ne $testrunID "") -}}
+  {{- $fileStem := .Page.File.ContentBaseName -}}
+  {{- $repoURL := site.Params.examplesRepoURL -}}
+  <div class="example-branch-links">
+    {{- range $repo := $materializeList -}}
+      <a href="{{ $repoURL }}/tree/examples/{{ $fileStem }}/{{ $testrunID }}/{{ $repo }}">Browse <code>{{ $repo }}</code></a>
+    {{- end -}}
+  </div>
+{{- end -}}

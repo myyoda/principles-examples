@@ -237,3 +237,35 @@ a[href*="/aspirations/"].rounded-md:hover {
   background-color: #d97706;
   color: #ffffff;
 }
+
+/* ── example branch links ────────────────────────────────── */
+.example-branch-links {
+  margin-top: -0.75rem;
+  margin-bottom: 1.5rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8em;
+}
+.example-branch-links a {
+  color: #0d9488;
+  text-decoration: none;
+  margin-right: 1.25em;
+}
+.example-branch-links a:hover {
+  text-decoration: underline;
+  color: #0e7490;
+}
+.example-branch-links a code {
+  font-size: 0.9em;
+  background-color: var(--color-neutral-100, #f5f5f5);
+  padding: 0.1em 0.3em;
+  border-radius: 0.2em;
+}
+.dark .example-branch-links a {
+  color: #2dd4bf;
+}
+.dark .example-branch-links a:hover {
+  color: #5eead4;
+}
+.dark .example-branch-links a code {
+  background-color: var(--color-neutral-800, #262626);
+}

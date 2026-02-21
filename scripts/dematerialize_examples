@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Remove all ``examples/**`` branches from a git remote.
+
+Lists remote branches matching ``examples/*`` and deletes them.
+Use ``--dry-run`` to preview without acting.
+"""
+from __future__ import annotations
+
+import argparse
+import subprocess
+import sys
+
+
+def list_example_branches(remote: str) -> list[str]:
+    """Return branch names (without remote prefix) matching ``examples/*``."""
+    result = subprocess.run(
+        ["git", "branch", "-r", "--list", f"{remote}/examples/*"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return []
+    branches = []
+    for line in result.stdout.splitlines():
+        ref = line.strip()
+        # Strip "origin/" prefix
+        if ref.startswith(f"{remote}/"):
+            branches.append(ref[len(remote) + 1 :])
+    return sorted(branches)
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Remove all examples/** branches from a remote.",
+    )
+    parser.add_argument(
+        "-r",
+        "--remote",
+        default="origin",
+        help="Git remote name (default: origin).",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List branches that would be deleted without acting.",
+    )
+    args = parser.parse_args(argv)
+
+    # Fetch so we see current remote state
+    subprocess.run(
+        ["git", "fetch", args.remote, "--prune"],
+        capture_output=True,
+    )
+
+    branches = list_example_branches(args.remote)
+    if not branches:
+        print("No examples/* branches found.")
+        return
+
+    print(f"Found {len(branches)} example branch(es):")
+    for b in branches:
+        print(f"  {b}")
+
+    if args.dry_run:
+        print("\ndry-run: no branches deleted.")
+        return
+
+    for b in branches:
+        print(f"  deleting {b}…", end=" ")
+        result = subprocess.run(
+            ["git", "push", args.remote, "--delete", b],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            print("ok")
+        else:
+            print(f"FAILED: {result.stderr.strip()}")
+
+    print("\nDone.")
+
+
+if __name__ == "__main__":
+    main()
