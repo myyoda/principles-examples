@@ -36,12 +36,18 @@ This pattern is ubiquitous in the git, git-annex, and DataLad communities.
 # pragma: exitcode 1
 # Reproducer for "file not found" — a filename typo
 
+# -- setup shell environment --
 set -eux
 PS4='> '
 cd "$(mktemp -d "${TMPDIR:-/tmp}/repro-XXXXXXX")"
 
+# -- setup your case --
 touch preciouss.dat
+
+# -- collect extra information --
 ls
+
+# -- trigger --
 test -e precious.dat
 ```
 
@@ -49,13 +55,15 @@ The script fails — `set -e` aborts as soon as `test -e precious.dat` returns
 non-zero.  The trace (`set -x`) already tells the full story:
 
 ```output
+> cd /tmp/repro-m6CM6OZ
 > touch preciouss.dat
 > ls
 preciouss.dat
 > test -e precious.dat
 ```
 
-No extra diagnostics needed — the `ls` output and the failing `test` make the
+No extra diagnostics needed, although you would know where to look
+(`/tmp/repro-m6CM6OZ`) — the `ls` output and the failing `test` make the
 typo obvious.  This is maximally portable (POSIX `sh` + coreutils) and
 self-contained.
 
