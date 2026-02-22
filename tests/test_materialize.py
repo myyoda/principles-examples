@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 import pytest
 
-# Ensure the repo root is importable
+# Ensure scripts/ is importable
 import sys
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -179,22 +179,21 @@ class TestScriptHash:
         assert h1 != h2
 
 
-class TestRemoteUrl:
+class TestDetectRemoteUrl:
     def test_github_env(self):
         with patch.dict(os.environ, {"GITHUB_REPOSITORY": "myyoda/principles-examples"}):
-            url = materialize_mod.remote_url_for_push("origin")
+            url = materialize_mod.detect_remote_url("origin")
             assert url == "https://github.com/myyoda/principles-examples"
 
     def test_git_remote(self):
         with patch.dict(os.environ, {}, clear=True):
-            # Remove GITHUB_REPOSITORY if present
             env = {k: v for k, v in os.environ.items() if k != "GITHUB_REPOSITORY"}
             with patch.dict(os.environ, env, clear=True):
                 with patch("subprocess.run") as mock_run:
                     mock_run.return_value = subprocess.CompletedProcess(
                         args=[], returncode=0, stdout="git@github.com:foo/bar.git\n"
                     )
-                    url = materialize_mod.remote_url_for_push("origin")
+                    url = materialize_mod.detect_remote_url("origin")
                     assert url == "git@github.com:foo/bar.git"
 
 
@@ -213,7 +212,6 @@ class TestRewriteSubmoduleUrls:
             check=True,
             capture_output=True,
         )
-        # Write a dummy file and commit
         (repo / "dummy.txt").write_text("hello")
         subprocess.run(["git", "-C", str(repo), "add", "."], check=True, capture_output=True)
         subprocess.run(
@@ -253,40 +251,248 @@ class TestRewriteSubmoduleUrls:
 
 
 # ---------------------------------------------------------------------------
-# Integration test: materialize with --worktrees-under
+# Integration tests: local branch materialization
 # ---------------------------------------------------------------------------
 
 
+def _init_test_repo(path: Path) -> None:
+    """Create a minimal git repo at *path* with content/examples/ dir."""
+    subprocess.run(
+        ["git", "init", "-b", "main", str(path)],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(path), "config", "user.email", "test@test.com"],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(path), "config", "user.name", "Test"],
+        check=True,
+        capture_output=True,
+    )
+
+
+def _write_test_md(path: Path, script_body: str = "echo hello") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(textwrap.dedent(f"""\
+        # Test
+
+        ```sh
+        #!/bin/sh
+        # pragma: testrun demo-1
+        # pragma: requires sh git
+        # pragma: materialize myrepo
+        set -eu
+        cd "$(mktemp -d "${{TMPDIR:-/tmp}}/mat-test-XXXXXXX")"
+        git init myrepo
+        cd myrepo
+        git config user.email "test@test.com"
+        git config user.name "Test"
+        echo "{script_body}" > file.txt
+        git add -A
+        git commit -m "init"
+        ```
+    """))
+
+
 @pytest.mark.ai_generated
-class TestMaterializeIntegration:
-    """End-to-end test: create a minimal markdown, materialize, verify."""
+class TestMaterializeLocalBranch:
+    """Test that materialization creates local branches + git notes."""
 
-    @staticmethod
-    def _write_test_md(path: Path, script_body: str = "echo hello") -> None:
-        path.write_text(textwrap.dedent(f"""\
-            # Test
+    def test_creates_local_branch(self, tmp_path, monkeypatch):
+        repo = tmp_path / "repo"
+        _init_test_repo(repo)
+        content_dir = repo / "content" / "examples"
+        _write_test_md(content_dir / "test-example.md")
 
-            ```sh
-            #!/bin/sh
-            # pragma: testrun demo-1
-            # pragma: requires sh git
-            # pragma: materialize myrepo
-            set -eu
-            cd "$(mktemp -d "${{TMPDIR:-/tmp}}/mat-test-XXXXXXX")"
-            git init myrepo
-            cd myrepo
-            git config user.email "test@test.com"
-            git config user.name "Test"
-            echo "{script_body}" > file.txt
-            git add -A
-            git commit -m "init"
-            ```
-        """))
+        # Need an initial commit so git notes work
+        (repo / "README.md").write_text("test")
+        subprocess.run(
+            ["git", "-C", str(repo), "add", "."],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-m", "init"],
+            check=True, capture_output=True,
+        )
+
+        monkeypatch.chdir(repo)
+        with patch.object(materialize_mod, "CONTENT_DIR", content_dir):
+            materialize_mod.main([])
+
+        # Branch should exist locally
+        result = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "--verify",
+             "refs/heads/examples/test-example/demo-1/myrepo"],
+            capture_output=True,
+        )
+        assert result.returncode == 0, "Local branch was not created"
+
+        # Branch should contain file.txt
+        result = subprocess.run(
+            ["git", "-C", str(repo), "show",
+             "examples/test-example/demo-1/myrepo:file.txt"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == "echo hello"
+
+    def test_no_marker_commits(self, tmp_path, monkeypatch):
+        """The example branch should NOT have extra marker commits."""
+        repo = tmp_path / "repo"
+        _init_test_repo(repo)
+        content_dir = repo / "content" / "examples"
+        _write_test_md(content_dir / "test-example.md")
+
+        (repo / "README.md").write_text("test")
+        subprocess.run(
+            ["git", "-C", str(repo), "add", "."],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-m", "init"],
+            check=True, capture_output=True,
+        )
+
+        monkeypatch.chdir(repo)
+        with patch.object(materialize_mod, "CONTENT_DIR", content_dir):
+            materialize_mod.main([])
+
+        # The branch should have exactly 1 commit (the "init" from the script)
+        result = subprocess.run(
+            ["git", "-C", str(repo), "rev-list", "--count",
+             "examples/test-example/demo-1/myrepo"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.stdout.strip() == "1", \
+            f"Expected 1 commit, got {result.stdout.strip()}"
+
+        # And that commit should NOT contain "Script-Hash"
+        result = subprocess.run(
+            ["git", "-C", str(repo), "log", "-1", "--format=%B",
+             "examples/test-example/demo-1/myrepo"],
+            capture_output=True,
+            text=True,
+        )
+        assert "Script-Hash" not in result.stdout
+
+    def test_hash_stored_in_git_notes(self, tmp_path, monkeypatch):
+        """Script hash should be in a git note, not a commit."""
+        repo = tmp_path / "repo"
+        _init_test_repo(repo)
+        content_dir = repo / "content" / "examples"
+        _write_test_md(content_dir / "test-example.md")
+
+        (repo / "README.md").write_text("test")
+        subprocess.run(
+            ["git", "-C", str(repo), "add", "."],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-m", "init"],
+            check=True, capture_output=True,
+        )
+
+        monkeypatch.chdir(repo)
+        with patch.object(materialize_mod, "CONTENT_DIR", content_dir):
+            materialize_mod.main([])
+
+        # Read the note on the branch tip
+        tip = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse",
+             "refs/heads/examples/test-example/demo-1/myrepo"],
+            capture_output=True, text=True, check=True,
+        )
+        commit = tip.stdout.strip()
+
+        note = subprocess.run(
+            ["git", "-C", str(repo), "notes",
+             f"--ref={materialize_mod.NOTES_REF}", "show", commit],
+            capture_output=True, text=True,
+        )
+        assert note.returncode == 0
+        assert "Script-Hash:" in note.stdout
+
+    def test_cache_hit_skips_regeneration(self, tmp_path, monkeypatch, capsys):
+        """Second run with same script content should say 'cache hit'."""
+        repo = tmp_path / "repo"
+        _init_test_repo(repo)
+        content_dir = repo / "content" / "examples"
+        _write_test_md(content_dir / "test-example.md")
+
+        (repo / "README.md").write_text("test")
+        subprocess.run(
+            ["git", "-C", str(repo), "add", "."],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-m", "init"],
+            check=True, capture_output=True,
+        )
+
+        monkeypatch.chdir(repo)
+        with patch.object(materialize_mod, "CONTENT_DIR", content_dir):
+            materialize_mod.main([])
+            captured = capsys.readouterr()
+            assert "cache hit" not in captured.out
+
+            # Second run — should hit the cache
+            materialize_mod.main([])
+            captured = capsys.readouterr()
+            assert "cache hit" in captured.out
+
+    def test_content_change_regenerates(self, tmp_path, monkeypatch):
+        """Changing script content should regenerate the branch."""
+        repo = tmp_path / "repo"
+        _init_test_repo(repo)
+        content_dir = repo / "content" / "examples"
+        md = content_dir / "test-example.md"
+
+        (repo / "README.md").write_text("test")
+        subprocess.run(
+            ["git", "-C", str(repo), "add", "."],
+            check=True, capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-m", "init"],
+            check=True, capture_output=True,
+        )
+
+        monkeypatch.chdir(repo)
+        with patch.object(materialize_mod, "CONTENT_DIR", content_dir):
+            _write_test_md(md, "version1")
+            materialize_mod.main([])
+
+            result = subprocess.run(
+                ["git", "-C", str(repo), "show",
+                 "examples/test-example/demo-1/myrepo:file.txt"],
+                capture_output=True, text=True,
+            )
+            assert result.stdout.strip() == "version1"
+
+            # Change content and re-run
+            _write_test_md(md, "version2")
+            materialize_mod.main([])
+
+            result = subprocess.run(
+                ["git", "-C", str(repo), "show",
+                 "examples/test-example/demo-1/myrepo:file.txt"],
+                capture_output=True, text=True,
+            )
+            assert result.stdout.strip() == "version2"
+
+
+@pytest.mark.ai_generated
+class TestMaterializeWorktree:
+    """The --worktrees-under mode still works."""
 
     def test_worktree_creation(self, tmp_path):
         content_dir = tmp_path / "content" / "examples"
-        content_dir.mkdir(parents=True)
-        self._write_test_md(content_dir / "test-example.md")
+        _write_test_md(content_dir / "test-example.md")
 
         worktrees = tmp_path / "worktrees"
 
@@ -297,43 +503,6 @@ class TestMaterializeIntegration:
         assert expected.is_dir(), f"Expected worktree at {expected}"
         assert (expected / "file.txt").exists()
         assert (expected / "file.txt").read_text().strip() == "echo hello"
-
-    def test_cache_hit_skips_regeneration(self, tmp_path, capsys):
-        content_dir = tmp_path / "content" / "examples"
-        content_dir.mkdir(parents=True)
-        self._write_test_md(content_dir / "test-example.md")
-
-        worktrees = tmp_path / "worktrees"
-
-        with patch.object(materialize_mod, "CONTENT_DIR", content_dir):
-            # First run
-            materialize_mod.main(["--worktrees-under", str(worktrees)])
-            # Second run — should still work (worktree mode doesn't cache)
-            materialize_mod.main(["--worktrees-under", str(worktrees)])
-
-        expected = worktrees / "examples" / "test-example" / "demo-1" / "myrepo"
-        assert expected.is_dir()
-
-    def test_content_change_triggers_regeneration(self, tmp_path):
-        content_dir = tmp_path / "content" / "examples"
-        content_dir.mkdir(parents=True)
-
-        worktrees = tmp_path / "worktrees"
-        md = content_dir / "test-example.md"
-
-        with patch.object(materialize_mod, "CONTENT_DIR", content_dir):
-            # First run
-            self._write_test_md(md, "version1")
-            materialize_mod.main(["--worktrees-under", str(worktrees)])
-
-            expected = worktrees / "examples" / "test-example" / "demo-1" / "myrepo"
-            assert (expected / "file.txt").read_text().strip() == "version1"
-
-            # Modify script content
-            self._write_test_md(md, "version2")
-            materialize_mod.main(["--worktrees-under", str(worktrees)])
-
-            assert (expected / "file.txt").read_text().strip() == "version2"
 
 
 # ---------------------------------------------------------------------------
@@ -355,94 +524,68 @@ class TestDematerialize:
             capture_output=True,
         )
 
-        # Create a temporary clone to push branches from
         clone = tmp_path / "clone"
         subprocess.run(
             ["git", "clone", str(bare), str(clone)],
             capture_output=True,
         )
-        # Clone of an empty repo may not have the dir; init it
         if not clone.exists():
             clone.mkdir()
             subprocess.run(
                 ["git", "init", "-b", "main", str(clone)],
-                check=True,
-                capture_output=True,
+                check=True, capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", str(clone), "remote", "add", "origin", str(bare)],
-                check=True,
-                capture_output=True,
+                check=True, capture_output=True,
             )
         subprocess.run(
             ["git", "-C", str(clone), "config", "user.email", "test@test.com"],
-            check=True,
-            capture_output=True,
+            check=True, capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(clone), "config", "user.name", "Test"],
-            check=True,
-            capture_output=True,
+            check=True, capture_output=True,
         )
 
-        # Create initial commit on main
         (clone / "README.md").write_text("test")
         subprocess.run(
             ["git", "-C", str(clone), "add", "."],
-            check=True,
-            capture_output=True,
+            check=True, capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(clone), "commit", "-m", "init"],
-            check=True,
-            capture_output=True,
+            check=True, capture_output=True,
         )
         subprocess.run(
             ["git", "-C", str(clone), "push", "-u", "origin", "main"],
-            check=True,
-            capture_output=True,
+            check=True, capture_output=True,
         )
 
-        # Create example branches
         for branch in [
             "examples/test/demo-1/myrepo",
             "examples/test/demo-2/myrepo",
         ]:
             subprocess.run(
                 ["git", "-C", str(clone), "checkout", "-b", branch],
-                check=True,
-                capture_output=True,
+                check=True, capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", str(clone), "push", "origin", branch],
-                check=True,
-                capture_output=True,
+                check=True, capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", str(clone), "checkout", "main"],
-                check=True,
-                capture_output=True,
+                check=True, capture_output=True,
             )
 
         return clone
 
     def test_list_branches(self, tmp_path):
         clone = self._setup_bare_repo(tmp_path)
-        # Fetch to populate remote tracking branches
-        subprocess.run(
-            ["git", "-C", str(clone), "fetch", "origin", "--prune"],
-            check=True,
-            capture_output=True,
-        )
-        branches = dematerialize_mod.list_example_branches.__wrapped__(
-            "origin"
-        ) if hasattr(dematerialize_mod.list_example_branches, "__wrapped__") else None
-
-        # Use the actual function in the clone's context
         result = subprocess.run(
             ["git", "-C", str(clone), "branch", "-r", "--list", "origin/examples/*"],
-            capture_output=True,
-            text=True,
+            capture_output=True, text=True,
         )
         branches = []
         for line in result.stdout.splitlines():
@@ -458,11 +601,9 @@ class TestDematerialize:
 
         dematerialize_mod.main(["--dry-run"])
 
-        # Branches should still exist
         result = subprocess.run(
             ["git", "branch", "-r", "--list", "origin/examples/*"],
-            capture_output=True,
-            text=True,
+            capture_output=True, text=True,
         )
         lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
         assert len(lines) == 2
@@ -473,15 +614,13 @@ class TestDematerialize:
 
         dematerialize_mod.main([])
 
-        # Fetch to see the updated state
         subprocess.run(
             ["git", "fetch", "origin", "--prune"],
             capture_output=True,
         )
         result = subprocess.run(
             ["git", "branch", "-r", "--list", "origin/examples/*"],
-            capture_output=True,
-            text=True,
+            capture_output=True, text=True,
         )
         lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
         assert len(lines) == 0

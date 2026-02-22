@@ -50,4 +50,4 @@ jobs:
 
       - name: Materialize example branches
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: python3 scripts/materialize_examples --strict
+        run: python3 scripts/materialize_examples --strict --push

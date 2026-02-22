@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-"""Materialize example git repositories as branches.
+"""Materialize example git repositories as local branches.
 
 Scans Markdown files in ``content/examples/`` for shell code blocks that
 carry both ``# pragma: testrun`` and ``# pragma: materialize`` annotations.
 Each annotated script is executed in a temporary directory and the resulting
-git repository sub-directories are force-pushed to branches under the
+git repository sub-directories are imported as local branches under the
 ``examples/`` namespace.
 
 Branch naming::
 
     examples/{file-stem}/{testrun-id}/{repo-subdir}
 
-A SHA-256 hash of the script content is stored in the branch's latest commit
-message as a ``Script-Hash:`` trailer.  If the hash matches the existing
-branch, regeneration is skipped.
+A SHA-256 hash of the script content is stored as a **git note**
+(``refs/notes/materialize``) on the branch tip commit.  If the hash
+matches, regeneration is skipped.
+
+By default, branches are created locally for inspection.  Use ``--push``
+to send them (and notes) to a remote.
 """
 from __future__ import annotations
 
@@ -36,6 +39,9 @@ FIXED_EPOCH = "2000-01-01T00:00:00+00:00"
 
 CONTENT_DIR = Path("content/examples")
 
+# Custom notes ref to avoid colliding with default refs/notes/commits.
+NOTES_REF = "refs/notes/materialize"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -51,8 +57,19 @@ def branch_name(file_stem: str, testrun_id: str, repo_subdir: str) -> str:
     return f"examples/{file_stem}/{testrun_id}/{repo_subdir}"
 
 
-def remote_url_for_push(remote: str) -> str:
-    """Determine the remote URL suitable for push operations.
+def repo_toplevel() -> Path:
+    """Return the absolute path of the current git working tree root."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return Path(result.stdout.strip())
+
+
+def detect_remote_url(remote: str) -> str:
+    """Detect the remote URL for submodule rewriting.
 
     In GitHub Actions ``GITHUB_REPOSITORY`` is always set.  Otherwise fall
     back to the configured remote URL.
@@ -70,31 +87,61 @@ def remote_url_for_push(remote: str) -> str:
     return ""
 
 
-def existing_script_hash(remote: str, branch: str) -> str | None:
-    """Read ``Script-Hash:`` from the latest commit message on *branch*.
+# ---------------------------------------------------------------------------
+# Git notes for cache
+# ---------------------------------------------------------------------------
 
-    Returns ``None`` if the branch doesn't exist or has no such trailer.
+def get_cached_hash(target_branch: str) -> str | None:
+    """Read the script hash from the git note on *target_branch*'s tip.
+
+    Returns ``None`` if the branch or note doesn't exist.
     """
-    result = subprocess.run(
-        ["git", "log", "-1", "--format=%B", f"{remote}/{branch}"],
+    # Resolve branch tip commit
+    tip = subprocess.run(
+        ["git", "rev-parse", "--verify", f"refs/heads/{target_branch}"],
         capture_output=True,
         text=True,
     )
-    if result.returncode != 0:
+    if tip.returncode != 0:
         return None
-    for line in result.stdout.splitlines():
+    commit = tip.stdout.strip()
+
+    # Read the note
+    note = subprocess.run(
+        ["git", "notes", f"--ref={NOTES_REF}", "show", commit],
+        capture_output=True,
+        text=True,
+    )
+    if note.returncode != 0:
+        return None
+    for line in note.stdout.splitlines():
         if line.startswith("Script-Hash:"):
             return line.split(":", 1)[1].strip()
     return None
 
 
-def fetch_remote_refs(remote: str) -> None:
-    """Fetch remote refs so that branch lookups work."""
-    subprocess.run(
-        ["git", "fetch", remote, "--prune"],
+def store_hash_note(target_branch: str, hash_val: str) -> None:
+    """Attach a script-hash note to *target_branch*'s tip commit."""
+    tip = subprocess.run(
+        ["git", "rev-parse", f"refs/heads/{target_branch}"],
         capture_output=True,
+        text=True,
+        check=True,
+    )
+    commit = tip.stdout.strip()
+    subprocess.run(
+        [
+            "git", "notes", f"--ref={NOTES_REF}",
+            "add", "-f", "-m", f"Script-Hash: {hash_val}",
+            commit,
+        ],
+        check=True,
     )
 
+
+# ---------------------------------------------------------------------------
+# Submodule URL rewriting
+# ---------------------------------------------------------------------------
 
 def rewrite_submodule_urls(
     repo_dir: Path,
@@ -123,10 +170,9 @@ def rewrite_submodule_urls(
         subdir = rel_path.rsplit("/", 1)[-1]
         if subdir.endswith(".git"):
             subdir = subdir[:-4]
-        # Also try {subdir}-work as the materialized branch name
-        # (convention: bare repo "foo.git" → working dir "foo-work")
-        target_branch = branch_name(file_stem, testrun_id, subdir + "-work")
-        return f"{prefix}{remote_url}\n\tbranch = {target_branch}"
+        # Convention: bare repo "foo.git" → working dir "foo-work"
+        target = branch_name(file_stem, testrun_id, subdir + "-work")
+        return f"{prefix}{remote_url}\n\tbranch = {target}"
 
     new_text = url_re.sub(_replace, text)
     if new_text != text:
@@ -146,31 +192,23 @@ def rewrite_submodule_urls(
         )
 
 
-def push_repo_to_branch(
-    repo_dir: Path,
-    target_branch: str,
-    remote: str,
-    remote_url: str,
-    dry_run: bool,
-) -> None:
-    """Force-push *repo_dir*'s history to *target_branch* on *remote_url*."""
-    if dry_run:
-        print(f"  dry-run: would push {repo_dir} → {target_branch}")
-        return
-    push_url = remote_url or remote
+# ---------------------------------------------------------------------------
+# Local branch creation
+# ---------------------------------------------------------------------------
+
+def import_as_local_branch(repo_dir: Path, target_branch: str) -> None:
+    """Fetch *repo_dir*'s HEAD into a local branch in the current repo."""
+    toplevel = repo_toplevel()
     subprocess.run(
         [
-            "git",
-            "-C",
+            "git", "fetch",
             str(repo_dir),
-            "push",
-            "--force",
-            push_url,
-            f"HEAD:refs/heads/{target_branch}",
+            f"+HEAD:refs/heads/{target_branch}",
         ],
         check=True,
+        cwd=str(toplevel),
     )
-    print(f"  pushed → {target_branch}")
+    print(f"  branch → {target_branch}")
 
 
 def create_worktree(
@@ -178,7 +216,7 @@ def create_worktree(
     target_branch: str,
     worktrees_under: Path,
 ) -> None:
-    """Copy the repo content into a worktree-like directory for inspection."""
+    """Copy the repo content into a directory for inspection."""
     dest = worktrees_under / target_branch
     if dest.exists():
         shutil.rmtree(dest)
@@ -186,6 +224,40 @@ def create_worktree(
     shutil.copytree(repo_dir, dest)
     print(f"  worktree → {dest}")
 
+
+# ---------------------------------------------------------------------------
+# Push
+# ---------------------------------------------------------------------------
+
+def push_branches_and_notes(remote: str) -> None:
+    """Push all ``examples/*`` branches and materialize notes to *remote*."""
+    # Gather local example branches
+    result = subprocess.run(
+        ["git", "branch", "--list", "examples/*", "--format=%(refname:short)"],
+        capture_output=True,
+        text=True,
+    )
+    branches = [b.strip() for b in result.stdout.splitlines() if b.strip()]
+    if not branches:
+        print("No example branches to push.")
+        return
+
+    # Build refspecs
+    refspecs = [f"refs/heads/{b}:refs/heads/{b}" for b in branches]
+    # Also push notes
+    refspecs.append(f"{NOTES_REF}:{NOTES_REF}")
+
+    print(f"Pushing {len(branches)} branch(es) + notes to {remote}…")
+    subprocess.run(
+        ["git", "push", "--force", remote] + refspecs,
+        check=True,
+    )
+    print("Push complete.")
+
+
+# ---------------------------------------------------------------------------
+# Script execution
+# ---------------------------------------------------------------------------
 
 def execute_script(
     block: ScriptBlock,
@@ -247,32 +319,8 @@ def execute_script(
     return tmpdir
 
 
-def add_script_hash_commit(repo_dir: Path, hash_value: str) -> None:
-    """Amend or create a marker commit with the Script-Hash trailer."""
-    # Add an empty commit with the hash trailer
-    subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo_dir),
-            "commit",
-            "--allow-empty",
-            "-m",
-            f"Materialized example\n\nScript-Hash: {hash_value}",
-        ],
-        check=True,
-        env={
-            **os.environ,
-            "GIT_AUTHOR_DATE": FIXED_EPOCH,
-            "GIT_COMMITTER_DATE": FIXED_EPOCH,
-        },
-    )
-
-
 def find_repo_subdir(tmpdir: Path, subdir_name: str) -> Path | None:
     """Locate a git repository subdirectory in *tmpdir* (recursive search)."""
-    # The scripts cd into a mktemp dir, then create subdirs.
-    # Search recursively for the named directory that is a git repo.
     for candidate in tmpdir.rglob(subdir_name):
         if candidate.is_dir():
             git_dir = candidate / ".git"
@@ -288,13 +336,12 @@ def find_repo_subdir(tmpdir: Path, subdir_name: str) -> Path | None:
 def process_block(
     block: ScriptBlock,
     *,
-    remote: str,
     remote_url: str,
     dry_run: bool,
     strict: bool,
     worktrees_under: Path | None,
 ) -> None:
-    """Process a single script block: execute, capture, push."""
+    """Process a single script block: execute, capture, import as branch."""
     testrun_id = str(block.pragmas.get("testrun", "unnamed"))
     materialize_list = block.pragmas.get("materialize", [])
     if not isinstance(materialize_list, list):
@@ -311,7 +358,7 @@ def process_block(
         all_cached = True
         for repo_subdir in materialize_list:
             bname = branch_name(block.file_stem, testrun_id, repo_subdir)
-            existing = existing_script_hash(remote, bname)
+            existing = get_cached_hash(bname)
             if existing != hash_val:
                 all_cached = False
                 break
@@ -343,22 +390,24 @@ def process_block(
 
             # Rewrite submodule URLs
             if remote_url:
-                rewrite_submodule_urls(repo_dir, block.file_stem, testrun_id, remote_url)
+                rewrite_submodule_urls(
+                    repo_dir, block.file_stem, testrun_id, remote_url,
+                )
 
-            # Add script hash marker commit
-            add_script_hash_commit(repo_dir, hash_val)
-
-            if worktrees_under:
+            if dry_run:
+                print(f"  dry-run: would create branch {bname}")
+            elif worktrees_under:
                 create_worktree(repo_dir, bname, worktrees_under)
             else:
-                push_repo_to_branch(repo_dir, bname, remote, remote_url, dry_run)
+                import_as_local_branch(repo_dir, bname)
+                store_hash_note(bname, hash_val)
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        description="Materialize example git repos as branches.",
+        description="Materialize example git repos as local branches.",
     )
     parser.add_argument(
         "--strict",
@@ -368,7 +417,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Parse and execute but don't push.",
+        help="Parse and execute but don't create branches.",
     )
     parser.add_argument(
         "-r",
@@ -377,11 +426,16 @@ def main(argv: list[str] | None = None) -> None:
         help="Git remote name (default: origin).",
     )
     parser.add_argument(
+        "--push",
+        action="store_true",
+        help="Push example branches and notes to remote after materializing.",
+    )
+    parser.add_argument(
         "--worktrees-under",
         type=Path,
         default=None,
         metavar="PATH",
-        help="Create local worktree copies instead of pushing to remote.",
+        help="Create directory copies instead of local branches.",
     )
     args = parser.parse_args(argv)
 
@@ -389,11 +443,11 @@ def main(argv: list[str] | None = None) -> None:
         print(f"ERROR: {CONTENT_DIR} not found", file=sys.stderr)
         sys.exit(1)
 
-    remote_url = ""
-    if not args.worktrees_under:
-        fetch_remote_refs(args.remote)
-        remote_url = remote_url_for_push(args.remote)
-        print(f"Remote URL: {remote_url}")
+    # Detect remote URL for submodule rewriting (even in local-only mode,
+    # we rewrite submodule URLs to point at the eventual remote location).
+    remote_url = detect_remote_url(args.remote)
+    if remote_url:
+        print(f"Remote URL (for submodule rewriting): {remote_url}")
 
     md_files = sorted(CONTENT_DIR.glob("*.md"))
     if not md_files:
@@ -407,12 +461,14 @@ def main(argv: list[str] | None = None) -> None:
                 continue
             process_block(
                 block,
-                remote=args.remote,
                 remote_url=remote_url,
                 dry_run=args.dry_run,
                 strict=args.strict,
                 worktrees_under=args.worktrees_under,
             )
+
+    if args.push and not args.dry_run:
+        push_branches_and_notes(args.remote)
 
     print("\nDone.")
 
