@@ -32,7 +32,8 @@
 </div>
 {{- if and (gt (len $materializeList) 0) (ne $testrunID "") -}}
   {{- $fileStem := .Page.File.ContentBaseName -}}
-  {{- $repoURL := site.Params.examplesRepoURL -}}
+  {{- /* Derive repo URL from editURL (strip /tree/... suffix) */ -}}
+  {{- $repoURL := replaceRE `/tree/.*$` "" site.Params.article.editurl -}}
   <div class="example-branch-links">
     {{- range $repo := $materializeList -}}
       <a href="{{ $repoURL }}/tree/examples/{{ $fileStem }}/{{ $testrunID }}/{{ $repo }}">Browse <code>{{ $repo }}</code></a>

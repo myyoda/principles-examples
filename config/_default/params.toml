@@ -57,6 +57,3 @@ fingerprintAlgorithm = "sha256"
 
 [sitemap]
   excludedKinds = []
-
-# URL for browsing materialized example branches
-examplesRepoURL = "https://github.com/myyoda/principles-examples"
