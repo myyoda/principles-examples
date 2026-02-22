@@ -512,115 +512,94 @@ class TestMaterializeWorktree:
 
 @pytest.mark.ai_generated
 class TestDematerialize:
-    """Test branch listing and deletion in a local bare repo."""
+    """Test local (and remote) branch deletion."""
 
     @staticmethod
-    def _setup_bare_repo(tmp_path: Path) -> Path:
-        """Create a bare repo with example branches for testing."""
-        bare = tmp_path / "test-remote.git"
+    def _setup_repo_with_local_branches(tmp_path: Path) -> Path:
+        """Create a repo with local example branches."""
+        repo = tmp_path / "repo"
+        _init_test_repo(repo)
+        (repo / "README.md").write_text("test")
         subprocess.run(
-            ["git", "init", "--bare", "--initial-branch=main", str(bare)],
-            check=True,
-            capture_output=True,
-        )
-
-        clone = tmp_path / "clone"
-        subprocess.run(
-            ["git", "clone", str(bare), str(clone)],
-            capture_output=True,
-        )
-        if not clone.exists():
-            clone.mkdir()
-            subprocess.run(
-                ["git", "init", "-b", "main", str(clone)],
-                check=True, capture_output=True,
-            )
-            subprocess.run(
-                ["git", "-C", str(clone), "remote", "add", "origin", str(bare)],
-                check=True, capture_output=True,
-            )
-        subprocess.run(
-            ["git", "-C", str(clone), "config", "user.email", "test@test.com"],
+            ["git", "-C", str(repo), "add", "."],
             check=True, capture_output=True,
         )
         subprocess.run(
-            ["git", "-C", str(clone), "config", "user.name", "Test"],
+            ["git", "-C", str(repo), "commit", "-m", "init"],
             check=True, capture_output=True,
         )
 
-        (clone / "README.md").write_text("test")
-        subprocess.run(
-            ["git", "-C", str(clone), "add", "."],
-            check=True, capture_output=True,
-        )
-        subprocess.run(
-            ["git", "-C", str(clone), "commit", "-m", "init"],
-            check=True, capture_output=True,
-        )
-        subprocess.run(
-            ["git", "-C", str(clone), "push", "-u", "origin", "main"],
-            check=True, capture_output=True,
-        )
-
+        # Create local example branches
         for branch in [
             "examples/test/demo-1/myrepo",
             "examples/test/demo-2/myrepo",
         ]:
             subprocess.run(
-                ["git", "-C", str(clone), "checkout", "-b", branch],
-                check=True, capture_output=True,
-            )
-            subprocess.run(
-                ["git", "-C", str(clone), "push", "origin", branch],
-                check=True, capture_output=True,
-            )
-            subprocess.run(
-                ["git", "-C", str(clone), "checkout", "main"],
+                ["git", "-C", str(repo), "branch", branch],
                 check=True, capture_output=True,
             )
 
-        return clone
+        # Add a note to one branch tip so we test note pruning
+        tip = subprocess.run(
+            ["git", "-C", str(repo), "rev-parse", "HEAD"],
+            capture_output=True, text=True, check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(repo), "notes",
+             f"--ref={dematerialize_mod.NOTES_REF}", "add", "-m",
+             "Script-Hash: abc123", tip.stdout.strip()],
+            check=True, capture_output=True,
+        )
 
-    def test_list_branches(self, tmp_path):
-        clone = self._setup_bare_repo(tmp_path)
+        return repo
+
+    def test_list_local_branches(self, tmp_path):
+        repo = self._setup_repo_with_local_branches(tmp_path)
         result = subprocess.run(
-            ["git", "-C", str(clone), "branch", "-r", "--list", "origin/examples/*"],
+            ["git", "-C", str(repo), "branch", "--list", "examples/*",
+             "--format=%(refname:short)"],
             capture_output=True, text=True,
         )
-        branches = []
-        for line in result.stdout.splitlines():
-            ref = line.strip()
-            if ref.startswith("origin/"):
-                branches.append(ref[len("origin/"):])
+        branches = [b.strip() for b in result.stdout.splitlines() if b.strip()]
         assert len(branches) == 2
         assert "examples/test/demo-1/myrepo" in branches
 
     def test_dry_run_preserves_branches(self, tmp_path, monkeypatch):
-        clone = self._setup_bare_repo(tmp_path)
-        monkeypatch.chdir(clone)
+        repo = self._setup_repo_with_local_branches(tmp_path)
+        monkeypatch.chdir(repo)
 
         dematerialize_mod.main(["--dry-run"])
 
         result = subprocess.run(
-            ["git", "branch", "-r", "--list", "origin/examples/*"],
+            ["git", "branch", "--list", "examples/*",
+             "--format=%(refname:short)"],
             capture_output=True, text=True,
         )
-        lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
-        assert len(lines) == 2
+        branches = [b.strip() for b in result.stdout.splitlines() if b.strip()]
+        assert len(branches) == 2
 
-    def test_delete_branches(self, tmp_path, monkeypatch):
-        clone = self._setup_bare_repo(tmp_path)
-        monkeypatch.chdir(clone)
+    def test_delete_local_branches(self, tmp_path, monkeypatch):
+        repo = self._setup_repo_with_local_branches(tmp_path)
+        monkeypatch.chdir(repo)
 
         dematerialize_mod.main([])
 
-        subprocess.run(
-            ["git", "fetch", "origin", "--prune"],
-            capture_output=True,
-        )
         result = subprocess.run(
-            ["git", "branch", "-r", "--list", "origin/examples/*"],
+            ["git", "branch", "--list", "examples/*",
+             "--format=%(refname:short)"],
             capture_output=True, text=True,
         )
-        lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
-        assert len(lines) == 0
+        branches = [b.strip() for b in result.stdout.splitlines() if b.strip()]
+        assert len(branches) == 0
+
+    def test_notes_pruned(self, tmp_path, monkeypatch):
+        repo = self._setup_repo_with_local_branches(tmp_path)
+        monkeypatch.chdir(repo)
+
+        dematerialize_mod.main([])
+
+        result = subprocess.run(
+            ["git", "notes", f"--ref={dematerialize_mod.NOTES_REF}", "list"],
+            capture_output=True, text=True,
+        )
+        assert result.stdout.strip() == ""

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Remove all ``examples/**`` branches from a git remote.
+"""Remove all ``examples/**`` branches (local and/or remote).
 
-Lists remote branches matching ``examples/*`` and deletes them.
+By default removes **local** ``examples/*`` branches and their associated
+git notes.  Use ``--remote`` to also remove remote branches.
 Use ``--dry-run`` to preview without acting.
 """
 from __future__ import annotations
@@ -10,8 +11,22 @@ import argparse
 import subprocess
 import sys
 
+NOTES_REF = "refs/notes/materialize"
 
-def list_example_branches(remote: str) -> list[str]:
+
+def list_local_example_branches() -> list[str]:
+    """Return local branch names matching ``examples/*``."""
+    result = subprocess.run(
+        ["git", "branch", "--list", "examples/*", "--format=%(refname:short)"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return []
+    return sorted(b.strip() for b in result.stdout.splitlines() if b.strip())
+
+
+def list_remote_example_branches(remote: str) -> list[str]:
     """Return branch names (without remote prefix) matching ``examples/*``."""
     result = subprocess.run(
         ["git", "branch", "-r", "--list", f"{remote}/examples/*"],
@@ -23,52 +38,71 @@ def list_example_branches(remote: str) -> list[str]:
     branches = []
     for line in result.stdout.splitlines():
         ref = line.strip()
-        # Strip "origin/" prefix
         if ref.startswith(f"{remote}/"):
             branches.append(ref[len(remote) + 1 :])
     return sorted(branches)
 
 
-def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(
-        description="Remove all examples/** branches from a remote.",
-    )
-    parser.add_argument(
-        "-r",
-        "--remote",
-        default="origin",
-        help="Git remote name (default: origin).",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="List branches that would be deleted without acting.",
-    )
-    args = parser.parse_args(argv)
-
-    # Fetch so we see current remote state
-    subprocess.run(
-        ["git", "fetch", args.remote, "--prune"],
-        capture_output=True,
-    )
-
-    branches = list_example_branches(args.remote)
+def delete_local_branches(branches: list[str], dry_run: bool) -> None:
+    """Delete local branches."""
     if not branches:
-        print("No examples/* branches found.")
         return
-
-    print(f"Found {len(branches)} example branch(es):")
-    for b in branches:
-        print(f"  {b}")
-
-    if args.dry_run:
-        print("\ndry-run: no branches deleted.")
+    if dry_run:
+        print(f"\ndry-run: would delete {len(branches)} local branch(es).")
         return
+    # -D (force) because these branches are never merged into main
+    result = subprocess.run(
+        ["git", "branch", "-D"] + branches,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        for line in result.stdout.splitlines():
+            if line.strip():
+                print(f"  {line.strip()}")
+    else:
+        print(f"  ERROR: {result.stderr.strip()}", file=sys.stderr)
 
+
+def prune_notes(dry_run: bool) -> None:
+    """Remove all materialize notes."""
+    # List note objects
+    result = subprocess.run(
+        ["git", "notes", f"--ref={NOTES_REF}", "list"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return
+    notes = result.stdout.strip().splitlines()
+    if dry_run:
+        print(f"  dry-run: would prune {len(notes)} note(s).")
+        return
+    for line in notes:
+        # Format: "<note-blob> <annotated-object>"
+        parts = line.split()
+        if len(parts) >= 2:
+            obj = parts[1]
+            subprocess.run(
+                ["git", "notes", f"--ref={NOTES_REF}", "remove", obj],
+                capture_output=True,
+            )
+    print(f"  pruned {len(notes)} note(s).")
+
+
+def delete_remote_branches(
+    remote: str, branches: list[str], dry_run: bool,
+) -> None:
+    """Delete remote branches."""
+    if not branches:
+        return
+    if dry_run:
+        print(f"\ndry-run: would delete {len(branches)} remote branch(es).")
+        return
     for b in branches:
-        print(f"  deleting {b}…", end=" ")
+        print(f"  deleting {remote}/{b}…", end=" ")
         result = subprocess.run(
-            ["git", "push", args.remote, "--delete", b],
+            ["git", "push", remote, "--delete", b],
             capture_output=True,
             text=True,
         )
@@ -76,6 +110,50 @@ def main(argv: list[str] | None = None) -> None:
             print("ok")
         else:
             print(f"FAILED: {result.stderr.strip()}")
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Remove all examples/** branches and notes.",
+    )
+    parser.add_argument(
+        "-r",
+        "--remote",
+        default=None,
+        help="Also delete remote branches on this remote (e.g. 'origin').",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List what would be deleted without acting.",
+    )
+    args = parser.parse_args(argv)
+
+    # Local branches
+    local = list_local_example_branches()
+    if local:
+        print(f"Local example branches ({len(local)}):")
+        for b in local:
+            print(f"  {b}")
+        delete_local_branches(local, args.dry_run)
+        prune_notes(args.dry_run)
+    else:
+        print("No local examples/* branches found.")
+
+    # Remote branches
+    if args.remote:
+        subprocess.run(
+            ["git", "fetch", args.remote, "--prune"],
+            capture_output=True,
+        )
+        remote_branches = list_remote_example_branches(args.remote)
+        if remote_branches:
+            print(f"\nRemote example branches on {args.remote} ({len(remote_branches)}):")
+            for b in remote_branches:
+                print(f"  {b}")
+            delete_remote_branches(args.remote, remote_branches, args.dry_run)
+        else:
+            print(f"\nNo remote examples/* branches on {args.remote}.")
 
     print("\nDone.")
 
