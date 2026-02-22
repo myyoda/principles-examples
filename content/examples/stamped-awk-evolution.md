@@ -35,7 +35,7 @@ property across four progressive scenarios.  Each scenario script follows the
 [ephemeral shell reproducer]({{< ref "examples/ephemeral-shell-reproducer" >}})
 skeleton for portability.
 
-## Scenario 1: Self-contained script (S, E)
+## Scenario 1: Self-contained script (S, E, P)
 
 The simplest case: a single script that creates the data inline, sums the
 prices, and prints the total.  Requires only POSIX `sh` and `awk`.
@@ -75,11 +75,7 @@ in a fresh temp directory).
 `LC_ALL=de_DE.UTF-8`, `awk` might interpret `1.50` as `1` (treating `.` as a
 thousands separator) or produce output with commas instead of periods.  Setting
 `LC_ALL=C` forces POSIX numeric conventions — consistent behavior regardless
-of the host locale.
-
-Unlike the more complex aggregation patterns (e.g., per-group means with
-`for (key in array)`), a simple `sum += $2` does not suffer from
-implementation-defined iteration order, so no `| sort` is needed here.
+of the host locale makes script more Portable (assuming availability of `awk`).
 
 ## Scenario 2: Makefile as actionable specification (+ T, A)
 
