@@ -121,17 +121,11 @@ is also on the host (created inside the bind mount), so subsequent runs
 can reuse it without reinstalling everything.
 
 The `uv pip install .` command reads dependencies directly from
-`pyproject.toml` — no separate `requirements.txt` needed.  For
-**interactive development** (e.g., with `docker run -it`), use
+`pyproject.toml`.  For **interactive development** (e.g., with `docker run -it`), use
 `uv pip install -e .` (editable install) so that changes to your Python
 source files take effect immediately without reinstalling.
 
-If you need to pin exact versions for reproducibility, use a lock file
-(`uv.lock`, `requirements.txt`) instead of `.` — but `pyproject.toml`
-remains the single source of truth for what your project depends on.
-For projects that are not full Python packages (e.g., a standalone script
-with a few dependencies), `uv pip install -r requirements.txt` is a
-valid alternative.
+Use `pyproject.toml` to specify the upper- or/and the lower-bound of your project's dependencies, and `uv` will resolve the compatibilities during the build. However, if you need to pin exact versions for reproducibility, use a lock file (`uv.lock`, `requirements.txt`) instead — the exact versions of packages will be installed.
 
 ### A testable example
 
@@ -150,7 +144,7 @@ cd "$(mktemp -d "${TMPDIR:-/tmp}/venv-overlay-XXXXXXX")"
 
 # -- create a minimal Python project --
 mkdir -p greet
-
+# -- declare dependencies of the project --
 cat > pyproject.toml << 'EOF'
 [build-system]
 requires = ["hatchling"]
@@ -178,7 +172,7 @@ def main():
 if __name__ == "__main__":
     main()
 PYEOF
-
+# -- store some items and a greeting in a config file --
 cat > config.yaml << 'EOF'
 greeting: Hello from the container
 items:
