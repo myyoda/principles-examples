@@ -168,7 +168,8 @@ def main():
 if __name__ == "__main__":
     main()
 PYEOF
-# -- store some items and a greeting in a config file --
+
+# -- edit data on the host, but run in container via bind mount --
 cat > config.yaml << 'EOF'
 greeting: Hello from the container
 items:
@@ -186,9 +187,9 @@ docker run --rm -v "$(pwd)":/work -w /work \
     .venv/bin/python -c "from greet import main; main()"
   '
 
-# -- edit data on the host, re-run to demonstrate bind mount --
+# -- edit again, no container rebuild needed -- FAST --
 cat > config.yaml << 'EOF'
-greeting: Edited on the host
+greeting: Edited again on the host
 items:
   - alpha
   - bravo
