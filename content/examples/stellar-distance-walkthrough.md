@@ -82,25 +82,20 @@ Each step that follows addresses one of these failure modes.
 The monolithic script does two things — fetch and compute — and there's no way to re-run one without the other.
 We split it into two scripts: `fetch_data.py` to retrieve data from Gaia, and `compute_distances.py` to calculate distances from that data.
 
+<!-- TODO: link to fetch_data.py and compute_distances.py commits once repo history is restructured -->
+
 ```python
-# fetch_data.py
+# fetch_data.py (abbreviated)
 def fetch(output_path):
-    params = urllib.parse.urlencode({
-        "REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv",
-        "QUERY": QUERY,
-    })
-    with urllib.request.urlopen(f"{GAIA_TAP_URL}?{params}") as resp:
-        data = resp.read().decode()
+    # ... query Gaia TAP API with urllib ...
     with open(output_path, "w") as f:
         f.write(data)
 ```
 
 ```python
-# compute_distances.py
+# compute_distances.py (abbreviated)
 def main(input_path, output_path):
-    with open(input_path) as f:
-        stars = list(csv.DictReader(f))
-    # ...
+    # ... read input CSV ...
     for star in stars:
         distance_pc = 1000.0 / float(star["parallax"])
     # ... write output CSV ...
@@ -266,21 +261,18 @@ stellar-distance/
 
 ### 8. Declare and pin dependencies
 
-Until now the scripts used only Python's standard library (urllib, csv).
-We rewrite the fetch script to use `requests` — cleaner API, better error handling — which introduces an external dependency.
+Until now the scripts used only Python's standard library (urllib, csv), so there was nothing to declare.
+To demonstrate how dependencies are handled, we rewrite the fetch script to use `requests`:
+
+<!-- TODO: link to fetch_data.py rewrite commit once repo history is restructured -->
 
 ```python
-# fetch_data.py (rewritten)
+# fetch_data.py (abbreviated)
 import requests
 
-def fetch(output_path, limit=100, min_parallax=10, max_error_ratio=0.1):
-    resp = requests.get(GAIA_TAP_URL, params={
-        "REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv",
-        "QUERY": query,
-    })
-    resp.raise_for_status()
-    with open(output_path, "w") as f:
-        f.write(resp.text)
+def fetch(output_path, ...):
+    resp = requests.get(GAIA_TAP_URL, params={...})
+    # ... write resp.text to output_path ...
 ```
 
 Without declaring the dependency, a fresh machine fails with `ModuleNotFoundError` — a Portability failure that only surfaces when someone else tries to run the code.
