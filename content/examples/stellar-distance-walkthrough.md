@@ -128,6 +128,7 @@ Once we've fetched the data with `datalad run`, we have our own versioned copy.
 The API is still the authoritative source, but we're no longer silently dependent on it — the provenance record documents where the data came from, and the committed CSV means the analysis can proceed offline.
 
 `datalad run` works on plain git repositories — no special initialization required.
+It creates a normal git commit whose message includes a machine-readable run record (the command, inputs, and outputs), so `git log` still tells the whole story.
 
 ```
 stellar-distance/
