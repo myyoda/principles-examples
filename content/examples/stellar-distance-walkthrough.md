@@ -16,15 +16,22 @@ params:
 
 ## What we're building
 
-<!-- TODO: wordsmith — enthusiastic intro framing the walkthrough as building a research object, not just running an analysis. Tone: practical, motivating, "you'll be surprised how far simple steps get you." -->
+Most research code starts the same way: a script that works, on your machine, right now.
+That's not a problem — it's a starting point.
 
-We compute the distance to 100 nearby stars using parallax measurements from the European Space Agency's [Gaia DR3](https://www.cosmos.esa.int/web/gaia/dr3) catalog.
+In this walkthrough we take a real analysis — computing distances to nearby stars from European Space Agency data — and turn it into something anyone can verify, reproduce, and build on.
+No new frameworks to learn.
+No heavyweight infrastructure.
+Just a series of small, practical steps, each one solving a concrete problem you've probably already run into: "which version of the data did I use?", "why doesn't this run on my colleague's laptop?", "how do I prove these numbers are right?"
+
+Along the way, we'll point out which STAMPED properties each step improves.
+By the end, you'll have a research object that passes a from-scratch reproduction test in a throwaway directory — and you'll see that most of the steps are things you might already be doing, just named and organized.
+
+**The science**: we compute the distance to 100 nearby stars using parallax measurements from the [Gaia DR3](https://www.cosmos.esa.int/web/gaia/dr3) catalog.
 The math is one line: `distance_pc = 1000 / parallax_mas`.
 The result is a CSV of stellar distances in parsecs — verified against Gaia's own pipeline estimates to within 0.3%.
 
 The analysis is deliberately simple so the focus stays on *how* we organize, track, and share the work.
-Each step is a concrete action.
-We note which STAMPED properties each step improves.
 
 **Repository**: [TODO: link to GitHub repo]
 
@@ -32,13 +39,17 @@ We note which STAMPED properties each step improves.
 
 ### 1. Proof of concept
 
-Write a Python script that queries the Gaia TAP API, fetches parallax for 100 nearby stars, computes `distance_pc = 1000 / parallax`, and writes a CSV.
-Run it. Get a result. Done.
+Write a single Python script that queries the Gaia TAP API, fetches parallax for 100 nearby stars, computes `distance_pc = 1000 / parallax`, and writes a CSV.
+Run it.
+Get a result.
+Done.
 
-This is where most analyses live forever.
-Not STAMPED at all — but it works, and that matters.
+This is where most analyses live forever — and that's fine for exploration.
+But what happens when you come back in six months and can't remember which query parameters you used?
+When a collaborator asks "how do I run this?" and the answer is "well, first you need to install..."?
+When a reviewer asks you to recompute with updated data?
 
-<!-- TODO: expand — frame the tension: the script works but is fragile. What happens when you come back in six months? When a collaborator tries to run it? When a reviewer asks how you got the numbers? Each subsequent step addresses one of these failure modes. -->
+Each step that follows addresses one of these failure modes.
 
 *We committed this so you can see it, but in real life this might just be a loose file on your desktop.*
 
@@ -48,16 +59,24 @@ Not STAMPED at all — but it works, and that matters.
 
 Put all files in a single project directory.
 
-<!-- TODO: explain the "don't look up" rule from Self-containment (S.1). Right now the script and output are loose — a collaborator would need to know which files go together. Gathering them establishes a boundary. -->
+This sounds obvious, but it's the foundation everything else builds on.
+Right now the script and its output are loose files — a collaborator would need to know which ones go together.
+A project directory draws a boundary: everything inside is part of this work, and nothing outside should be needed.
+STAMPED calls this the "don't look up" rule (S.1): a research object must never rely on implicit external state.
 
 **Advances**: S (everything reachable from one root)
 
 ### 3. Organize into directories
 
 Separate `code/`, `raw/`, `output/`.
-Code is what you write, raw is what you fetch, output is what you compute.
+Code is what you write.
+Raw is what you fetch.
+Output is what you compute.
 
-<!-- TODO: explain why separation matters — it tells you the role of each file at a glance. When something breaks, you know where to look. This is Modularity at its simplest: not separate repos, just separate directories with clear roles. Also: splitting the monolithic script into fetch + compute makes each piece independently testable and replaceable. -->
+This tells you the role of each file at a glance.
+When something breaks, you know where to look.
+We also split the monolithic script into two: one that fetches data, one that computes distances.
+Each piece is now independently testable and replaceable — Modularity at its simplest.
 
 **Advances**: M (logical separation of concerns), S (clearer boundary)
 
@@ -67,7 +86,9 @@ Code is what you write, raw is what you fetch, output is what you compute.
 
 Explain what this project does, what the inputs and outputs are, and how to run it.
 
-<!-- TODO: frame as the minimum viable Actionability. Without a README, the project is only actionable by the person who wrote it (and only while they remember how). A README makes it actionable by anyone who can read. This is A.1: "sufficient instructions to reproduce." -->
+Without a README, the project is only usable by the person who wrote it — and only while they remember how.
+A README makes it usable by anyone who can read.
+This is the minimum viable Actionability (A.1): sufficient instructions to reproduce all results.
 
 **Advances**: A (someone can now follow instructions to reproduce), S (project is self-describing)
 
@@ -80,7 +101,8 @@ Explain what this project does, what the inputs and outputs are, and how to run 
 From now on, every change is recorded: who, when, what, and (in the commit message) why.
 You can always get back to any previous state.
 
-<!-- TODO: explain content-addressed identification (T.1) — each commit hash is a fingerprint of the entire project state. This is stronger than "version 1.0" labels because two people with the same hash provably have the same content. Also: version control is the safety net that makes all subsequent steps low-risk — you can always revert. -->
+Each commit hash is a fingerprint of the entire project state — not a label like "version 1.0" that two people could apply to different things, but a cryptographic checksum that two people with the same hash provably have the same content.
+Version control is also the safety net that makes every subsequent step low-risk: if something goes wrong, you can always revert.
 
 **Advances**: T (content identification, change history)
 
@@ -91,7 +113,10 @@ You can always get back to any previous state.
 Encode the pipeline as `make` targets: `raw/gaia_nearby.csv` depends on `code/fetch_data.py`, `output/distances.csv` depends on `raw/gaia_nearby.csv` and `code/compute_distances.py`.
 `make` runs the whole thing.
 
-<!-- TODO: frame the jump from "documented" to "executable." The README says how to run the pipeline; the Makefile actually runs it. This is the Actionability spectrum in action (A.2): moving from prose instructions to an executable specification. Also note that Make encodes dependencies — it knows what to re-run when inputs change, which is a form of provenance. -->
+The README *says* how to run the pipeline.
+The Makefile *does* it.
+This is the jump from documented to executable — the Actionability spectrum in action (A.2).
+Make also encodes dependencies: it knows what to re-run when an input changes, which is itself a lightweight form of provenance.
 
 **Advances**: A (executable specification — not just documentation but a runnable recipe)
 
@@ -103,7 +128,11 @@ Write a verification script that fetches independent reference distances from Ga
 `make test` runs it.
 48 of 100 stars have reference values; all match within 0.3%.
 
-<!-- TODO: explain why testing is Actionability, not just good practice. A research object without verification asks others to trust the results. A test makes the claim falsifiable — anyone can run `make test` and see for themselves. Also note: not all 100 stars have GSP-Phot distances (only 48 do), which actually demonstrates that our simple formula covers more stars than the sophisticated pipeline. -->
+A research object without verification asks others to trust the results.
+A test makes the claim falsifiable — anyone can run `make test` and see for themselves.
+
+An interesting detail: only 48 of our 100 stars have GSP-Phot distances, because Gaia's sophisticated pipeline doesn't produce estimates for every star.
+Our simple one-line formula actually covers more stars than the pipeline does.
 
 **Advances**: A (verifiable results, not just "trust me")
 
@@ -113,7 +142,10 @@ Write a verification script that fetches independent reference distances from Ga
 
 Add `pyproject.toml` listing the Python packages we use (`requests`).
 
-<!-- TODO: frame the problem this solves. Until now, the scripts used only stdlib (urllib). When we rewrote fetch_data.py to use `requests` (cleaner API, better error handling), we introduced an external dependency. Without declaring it, a fresh machine would fail with `ModuleNotFoundError: No module named 'requests'` — a Portability failure. pyproject.toml makes the assumption explicit (P.1, P.2). -->
+Until now, the scripts used only Python's standard library.
+When we rewrote the fetch script to use `requests` (cleaner API, better error handling), we introduced an external dependency.
+Without declaring it, a fresh machine fails with `ModuleNotFoundError: No module named 'requests'` — a Portability failure that only surfaces when someone else tries to run the code.
+`pyproject.toml` makes that assumption explicit.
 
 **Advances**: P (host assumptions are now documented, not implicit)
 
@@ -121,10 +153,13 @@ Add `pyproject.toml` listing the Python packages we use (`requests`).
 
 ### 9. Pin dependency versions
 
-Generate `requirements.txt` with exact versions.
-Better: use `pip-compile --generate-hashes` for hash-pinned versions — guarantees byte-identical packages.
+Generate `requirements.txt` with exact versions and cryptographic hashes using `pip-compile --generate-hashes`.
 
-<!-- TODO: explain the difference between "requests" (any version) and "requests==2.32.5 --hash=sha256:..." (this exact build). The former is a declaration; the latter is a distribution-ready specification. Hash pinning means even if a package is re-uploaded with the same version number, the install will fail rather than silently use different code. This is where Portability meets Tracking — the environment specification is content-addressed. -->
+There's a big difference between `requests` (any version) and `requests==2.32.5 --hash=sha256:...` (this exact build).
+The first is a declaration — it says what you need.
+The second is a distribution-ready specification — it says exactly what bytes to install.
+Hash pinning means that even if a package is re-uploaded with the same version number, the install will reject it rather than silently using different code.
+This is where Portability meets Tracking: the environment specification itself is content-addressed.
 
 **Advances**: P (reproducible environment), T (pinned versions are content-addressed)
 
@@ -133,11 +168,13 @@ Better: use `pip-compile --generate-hashes` for hash-pinned versions — guarant
 ### 10. Record provenance with datalad run
 
 Wrap the fetch and analysis commands with `datalad run`, which records the exact command, inputs, and outputs as machine-readable metadata in each commit.
-The provenance is not just inspectable — it's re-executable via `datalad rerun`.
 
-Note: `datalad run` works on plain git repositories — no DataLad dataset or git-annex required.
+A regular git commit says "these files changed."
+A `datalad run` commit says "these files changed *because this command was run with these inputs and produced these outputs*."
+The run record is JSON embedded in the commit message — machine-readable, not just human-readable.
+And because the record is executable, anyone can replay it with `datalad rerun`.
 
-<!-- TODO: explain what datalad run adds beyond "git commit." A regular commit says "these files changed." A datalad run commit says "these files changed because this command was run with these inputs and produced these outputs." The run record is JSON embedded in the commit message — machine-readable, not just human-readable. This is T.4: programmatic provenance that includes component versions. And because the record is executable, it's also A.2: an executable specification. -->
+`datalad run` works on plain git repositories — no special dataset initialization or git-annex required.
 
 **Advances**: T (programmatic provenance), A (provenance records are executable specifications)
 
@@ -148,7 +185,11 @@ Note: `datalad run` works on plain git repositories — no DataLad dataset or gi
 `git push` to a public repository.
 Now anyone can `git clone`, `pip install -r requirements.txt`, `make`, and reproduce the result.
 
-<!-- TODO: frame as the Distributability threshold — D.1 says all components must be "persistently retrievable by others." Until this step, the research object was self-contained and reproducible but only on your machine. Publishing makes it distributable. Note: GitHub is not archival — for long-term persistence, Zenodo or Software Heritage would be the next step (see "Where to go from here"). -->
+Until this step, the research object was self-contained and reproducible — but only on your machine.
+Publishing crosses the Distributability threshold (D.1): all components become persistently retrievable by others.
+
+Note that GitHub is hosting, not archival.
+For long-term persistence, the next step would be depositing on Zenodo or Software Heritage (see "Where to go from here").
 
 **Advances**: D (persistently retrievable by others)
 
@@ -160,9 +201,12 @@ Write a script that clones the repository into a fresh temp directory, installs 
 If it passes, the research object doesn't depend on anything from your machine — no accumulated state, no forgotten steps.
 The temp directory is thrown away afterward.
 
-This is the [ephemeral shell reproducer]({{< ref "examples/ephemeral-shell-reproducer" >}}) pattern applied to our own project.
+This is the ultimate integration test for a research object.
+Ephemeral reproduction exercises almost every STAMPED property at once: the project must be self-contained (S), the pipeline must actually run (A), it must work in a fresh environment (P), and there's no prior state to lean on (E).
+If `reproduce_from_scratch.sh` passes, you have strong evidence that your research object is solid.
+If it fails, the error message tells you which property broke.
 
-<!-- TODO: explain why this is the ultimate integration test for STAMPED. Ephemeral reproduction exercises almost every property at once: S (everything needed must be inside the boundary), A (the pipeline must actually run), P (it must work in a fresh environment), E (no prior state). If reproduce_from_scratch.sh passes, you have strong evidence that your research object is STAMPED. If it fails, the error message tells you exactly which property broke. -->
+This is the [ephemeral shell reproducer]({{< ref "examples/ephemeral-shell-reproducer" >}}) pattern applied to our own project.
 
 **Advances**: E (results produced without prior state), A (reproduction is a single command), S (validates that nothing outside the boundary is needed)
 
